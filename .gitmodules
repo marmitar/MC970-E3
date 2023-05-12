@@ -1,0 +1,6 @@
+[submodule "02-Histogram/tests"]
+	path = 02-Histogram/tests
+	url = https://github.com/mo644-mc970/histogram-tests.git
+[submodule "03-Smoothing/tests"]
+	path = 03-Smoothing/tests
+	url = https://github.com/mo644-mc970/smoothing-tests.git
