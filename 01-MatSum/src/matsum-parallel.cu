@@ -1,8 +1,29 @@
-#include <cassert>
 #include <cmath>
-#include <cstdio>
-#include <cstdlib>
 #include <omp.h>
+
+#include <fstream>
+#include <iostream>
+#include <limits>
+#include <stdexcept>
+#include <tuple>
+
+/** Marker for conditional expressions that are unlikely to happen. */
+#define unlikely(condition) (__builtin_expect(!!(condition), false))
+
+/** Parse matrix dimensions from test case. */
+static std::pair<unsigned, unsigned> read_input(const char *filename) {
+  auto input = std::fstream(filename, std::fstream::in);
+  input.exceptions(input.badbit | input.failbit | input.eofbit);
+
+  unsigned rows, cols;
+  input >> rows >> cols;
+
+  constexpr unsigned max_size = std::numeric_limits<unsigned>::max();
+  if unlikely (rows > max_size / cols) {
+    throw std::length_error("matrix has more elements than UINT_MAX");
+  }
+  return std::pair(rows, cols);
+}
 
 static __global__ void matrix_sum(/* ... */) {
   // TODO: Implement this kernel!
@@ -10,22 +31,11 @@ static __global__ void matrix_sum(/* ... */) {
 }
 
 int main(const int argc, const char *const *const argv) {
-  if (argc < 2) {
-    fprintf(stderr, "Error: missing path to input file\n");
-    return EXIT_FAILURE;
+  if unlikely (argc != 2) {
+    throw std::invalid_argument("missing path to input file");
   }
 
-  FILE *input = fopen(argv[1], "r");
-  if (input == NULL) {
-    fprintf(stderr, "Error: could not open file\n");
-    return EXIT_FAILURE;
-  }
-
-  // Input
-  unsigned rows = 0, cols = 0;
-  assert(fscanf(input, "%u", &rows) == 1);
-  assert(fscanf(input, "%u", &cols) == 1);
-  fclose(input);
+  const auto [rows, cols] = read_input(argv[1]);
 
   // Allocate memory on the host
   unsigned *A = new unsigned[rows * cols];
@@ -44,10 +54,10 @@ int main(const int argc, const char *const *const argv) {
 
   // Compute matrix sum on device
   // Leave only the kernel and synchronize inside the timing region!
-  double t = omp_get_wtime();
+  const double start = omp_get_wtime();
   matrix_sum<<<1, 1>>>(/* ... */);
   cudaDeviceSynchronize();
-  t = omp_get_wtime() - t;
+  const double time = omp_get_wtime() - start;
 
   // Copy data back to host
   // ...
@@ -61,8 +71,8 @@ int main(const int argc, const char *const *const argv) {
     }
   }
 
-  fprintf(stdout, "%llu\n", sum);
-  fprintf(stderr, "%lf\n", t);
+  std::cout << sum << std::endl;
+  std::cerr << std::fixed << time << std::endl;
 
   delete[] A;
   delete[] B;
