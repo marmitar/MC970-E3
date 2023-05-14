@@ -1,10 +1,9 @@
 #!/bin/bash
-#PBS -N matsum
+#PBS -N histogram
 #PBS -q testegpu
-#PBS -e job_output.out
-#PBS -o job_output.err
+#PBS -o job_output.out
+#PBS -e job_output.err
 #PBS -l walltime=00:25:00
-
 
 # load our environment
 module purge
@@ -15,18 +14,13 @@ module load cuda/11.5.0-gcc-9.4.0
 # cd to job directory
 cd $PBS_O_WORKDIR
 
-cmake -E remove -f build
-cmake -E make_directory build
-cd build
-cmake ../ -DCMAKE_BUILD_TYPE=Release -DCMAKE_CUDA_COMPILER=/opt/pub/spack/cuda/11.5.0/gcc/9.4.0/bin/nvcc
-cd ..
+rm -rf build
+cmake -B build -D CMAKE_BUILD_TYPE=Release -D CMAKE_CUDA_ARCHITECTURES=80 .
 
 ###
 ### @swineone's script
 ###
-cd build
-make
-cd ..
+make -C build
 for a in 1 2 3 4 5
 do
         build/parallel tests/$a.in \
