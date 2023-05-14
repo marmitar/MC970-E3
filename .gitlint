@@ -1,0 +1,20 @@
+[general]
+ignore=body-is-missing
+# Hard fail when the target commit range is empty. Note that gitlint will
+# already fail by default on invalid commit ranges. This option is specifically
+# to tell gitlint to fail on *valid but empty* commit ranges.
+# Disabled by default.
+fail-without-commits=true
+# Whether to use Python `search` instead of `match` semantics in rules that use
+# regexes. Context: https://github.com/jorisroovers/gitlint/issues/254
+# Disabled by default, but will be enabled by default in the future.
+regex-style-search=true
+
+[title-max-length]
+line-length=72
+
+[title-min-length]
+min-length=10
+
+[body-max-line-length]
+line-length=100

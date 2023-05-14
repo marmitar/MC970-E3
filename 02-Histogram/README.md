@@ -54,16 +54,13 @@ framework installed compiler.
 Then, run the following commands:
 
 ```bash
-# Where the build will live
-mkdir build && cd build
-
 # Generate the Makefiles
-cmake -DCMAKE_BUILD_TYPE=Release ..
+cmake -B build -D CMAKE_BUILD_TYPE=Release .
 ```
 
-Having done that, still inside the `build` directory, run `make` to compile
-everything. Finally, from the root directory of the repo you can execute the
-serial and parallel versions like so:
+Having done that, run `make -C build` to compile everything. Finally, from the
+root directory of the repo you can execute the serial and parallel versions
+like so:
 
 ```bash
 build/serial tests/1.in

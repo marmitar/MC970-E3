@@ -18,7 +18,7 @@ If you wish, you can run the lab exercises on the CENAPAD cluster, a high-perfor
 To get started, clone this repository to your local machine using the following command:
 
 ```sh
-git clone --recurse-submodules <repository URL>
+git clone --recurse-submodules git@github.com:mc970-1s23/cuda-exercises-TiagodePAlves.git
 ```
 
 The command `--recurse-submodules` is used to clone the test folder, which is from a separate repository, because of its size.
