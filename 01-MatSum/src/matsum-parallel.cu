@@ -22,19 +22,19 @@ int main(const int argc, const char *const *const argv) {
   }
 
   // Input
-  int rows = 0, cols = 0;
-  assert(fscanf(input, "%d", &rows) == 1);
-  assert(fscanf(input, "%d", &cols) == 1);
+  unsigned rows = 0, cols = 0;
+  assert(fscanf(input, "%u", &rows) == 1);
+  assert(fscanf(input, "%u", &cols) == 1);
   fclose(input);
 
   // Allocate memory on the host
-  int *A = new int[rows * cols];
-  int *B = new int[rows * cols];
-  int *C = new int[rows * cols];
+  unsigned *A = new unsigned[rows * cols];
+  unsigned *B = new unsigned[rows * cols];
+  unsigned *C = new unsigned[rows * cols];
 
   // Initialize memory
-  for (int i = 0; i < rows; i++) {
-    for (int j = 0; j < cols; j++) {
+  for (unsigned i = 0; i < rows; i++) {
+    for (unsigned j = 0; j < cols; j++) {
       A[i * cols + j] = B[i * cols + j] = i + j;
     }
   }
@@ -52,16 +52,16 @@ int main(const int argc, const char *const *const argv) {
   // Copy data back to host
   // ...
 
-  long long int sum = 0;
+  long long unsigned sum = 0;
 
   // Keep this computation on the CPU
-  for (int i = 0; i < rows; i++) {
-    for (int j = 0; j < cols; j++) {
+  for (unsigned i = 0; i < rows; i++) {
+    for (unsigned j = 0; j < cols; j++) {
       sum += C[i * cols + j];
     }
   }
 
-  fprintf(stdout, "%lli\n", sum);
+  fprintf(stdout, "%llu\n", sum);
   fprintf(stderr, "%lf\n", t);
 
   delete[] A;
