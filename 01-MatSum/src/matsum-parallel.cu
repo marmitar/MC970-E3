@@ -1,7 +1,8 @@
-#include <math.h>
+#include <cassert>
+#include <cmath>
+#include <cstdio>
+#include <cstdlib>
 #include <omp.h>
-#include <stdio.h>
-#include <stdlib.h>
 
 static __global__ void matrix_sum(/* ... */) {
   // TODO: Implement this kernel!
@@ -21,14 +22,15 @@ int main(const int argc, const char *const *const argv) {
   }
 
   // Input
-  int rows, cols;
-  fscanf(input, "%d", &rows);
-  fscanf(input, "%d", &cols);
+  int rows = 0, cols = 0;
+  assert(fscanf(input, "%d", &rows) == 1);
+  assert(fscanf(input, "%d", &cols) == 1);
+  fclose(input);
 
   // Allocate memory on the host
-  int *A = (int *)malloc(sizeof(int) * rows * cols);
-  int *B = (int *)malloc(sizeof(int) * rows * cols);
-  int *C = (int *)malloc(sizeof(int) * rows * cols);
+  int *A = new int[rows * cols];
+  int *B = new int[rows * cols];
+  int *C = new int[rows * cols];
 
   // Initialize memory
   for (int i = 0; i < rows; i++) {
@@ -62,7 +64,9 @@ int main(const int argc, const char *const *const argv) {
   fprintf(stdout, "%lli\n", sum);
   fprintf(stderr, "%lf\n", t);
 
-  free(A);
-  free(B);
-  free(C);
+  delete[] A;
+  delete[] B;
+  delete[] C;
+
+  return EXIT_SUCCESS;
 }
