@@ -30,8 +30,8 @@ Tasks & Rules
 You should do the following tasks:
 
 - [X] Understand the serial code in `src/matsum-serial.c`
-- [ ] Parallelize the code using CUDA in the file `src/matsum-parallel.cu`
-- [ ] Run both versions and compare them. Did you get any speedup?
+- [X] Parallelize the code using CUDA in the file `src/matsum-parallel.cu`
+- [X] Run both versions and compare them. Did you get any speedup? (up to 74x)
 
 You must **not** change the serial implementation, only the parallel one.
 

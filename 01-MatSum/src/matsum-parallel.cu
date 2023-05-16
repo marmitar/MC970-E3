@@ -154,9 +154,12 @@ static std::pair<unsigned, unsigned> read_input(const char *filename) {
   return std::pair(rows, cols);
 }
 
-static __global__ void matrix_sum(/* ... */) {
-  // TODO: Implement this kernel!
-  printf("Hello, World from the GPU!\n");
+static __launch_bounds__(cuda::BLOCK_SIZE) __global__
+    void matrix_sum(const unsigned *restrict A, const unsigned *restrict B, unsigned *restrict C) {
+
+  const unsigned idx = blockDim.x * blockIdx.x + threadIdx.x;
+  // no need to check the range, since 'cuda::malloc' rounds to the nearest multiple of BLOCK_SIZE
+  C[idx] = A[idx] + B[idx];
 }
 
 int main(const int argc, const char *const *const argv) {
@@ -179,17 +182,31 @@ int main(const int argc, const char *const *const argv) {
   }
 
   // Copy data to device
-  // ...
+  unsigned *cA = cuda::malloc<unsigned>(rows * cols);
+  unsigned *cB = cuda::malloc<unsigned>(rows * cols);
+  unsigned *cC = cuda::malloc<unsigned>(rows * cols);
+
+  cuda::memcpy_host_to_device(cA, A, rows * cols);
+  cuda::memcpy_host_to_device(cB, B, rows * cols);
 
   // Compute matrix sum on device
   // Leave only the kernel and synchronize inside the timing region!
   const double start = omp_get_wtime();
-  matrix_sum<<<1, 1>>>(/* ... */);
-  cudaDeviceSynchronize();
+  // launch kernel checking for errors
+  cuda::last_error::clear();
+  const unsigned total = rows * cols;
+  matrix_sum<<<cuda::blocks(total), cuda::BLOCK_SIZE>>>(cA, cB, cC);
+  cuda::last_error::check();
+
+  cuda::device_synchronize();
   const double time = omp_get_wtime() - start;
 
   // Copy data back to host
-  // ...
+  cuda::memcpy_device_to_host(C, cC, rows * cols);
+
+  cuda::free(cA);
+  cuda::free(cB);
+  cuda::free(cC);
 
   long long unsigned sum = 0;
 
