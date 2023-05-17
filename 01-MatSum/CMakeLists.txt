@@ -47,6 +47,10 @@ endif()
 
 ## BINARIES ##
 
+# Set number of threads for the solution
+set(THREADS_PER_BLOCK "256" CACHE STRING "Number of threads for each CUDA block")
+add_compile_definitions(THREADS_PER_BLOCK=${THREADS_PER_BLOCK})
+
 find_package(CUDA REQUIRED)
 find_package(OpenMP REQUIRED)
 
