@@ -12,7 +12,7 @@ Tasks & Rules
 
 You should do the following tasks:
 
-- [ ] Understand the serial code in `src/histogram-serial.c`
+- [X] Understand the serial code in `src/histogram-serial.c`
 - [ ] Parallelize the code using CUDA in the file `src/histogram-parallel.cu`
 - [ ] Run both versions and compare them. Did you get any speedup?
 

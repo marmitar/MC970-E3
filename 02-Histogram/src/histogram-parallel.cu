@@ -1,45 +1,43 @@
-#include <math.h>
+#include <cmath>
+#include <cstdint>
+#include <cstdio>
+#include <cstdlib>
 #include <omp.h>
-#include <stdio.h>
-#include <stdlib.h>
 
-#define COMMENT "Histogram_GPU"
-#define RGB_COMPONENT_COLOR 255
+#include <algorithm>
 
-#define MIN(a, b) (((a) < (b)) ? (a) : (b))
-#define MAX(a, b) (((a) > (b)) ? (a) : (b))
+static constexpr const char *COMMENT = "Histogram_GPU";
+static constexpr unsigned RGB_COMPONENT_COLOR = 255;
 
-void check_cuda(cudaError_t error, const char *filename, const int line)
-{
+static void check_cuda(cudaError_t error, const char *filename, const int line) {
   if (error != cudaSuccess) {
-    fprintf(stderr, "Error: %s:%d: %s: %s\n", filename, line,
-                 cudaGetErrorName(error), cudaGetErrorString(error));
+    fprintf(stderr, "Error: %s:%d: %s: %s\n", filename, line, cudaGetErrorName(error),
+            cudaGetErrorString(error));
     exit(EXIT_FAILURE);
   }
 }
 
 #define CUDACHECK(cmd) check_cuda(cmd, __FILE__, __LINE__)
 
-typedef struct {
-  unsigned char red, green, blue;
-} PPMPixel;
+struct PPMPixel final {
+  uint8_t red;
+  uint8_t green;
+  uint8_t blue;
+};
 
-typedef struct {
-  int x, y;
+struct PPMImage final {
+  unsigned x, y;
   PPMPixel *data;
-} PPMImage;
+};
 
 static PPMImage *readPPM(const char *filename) {
-  char buff[16];
-  PPMImage *img;
-  FILE *fp;
-  int c, rgb_comp_color;
-  fp = fopen(filename, "rb");
+  FILE *fp = fopen(filename, "rb");
   if (!fp) {
     fprintf(stderr, "Unable to open file '%s'\n", filename);
     exit(1);
   }
 
+  char buff[16];
   if (!fgets(buff, sizeof(buff), fp)) {
     perror(filename);
     exit(1);
@@ -50,13 +48,13 @@ static PPMImage *readPPM(const char *filename) {
     exit(1);
   }
 
-  img = (PPMImage *)malloc(sizeof(PPMImage));
+  PPMImage *img = new PPMImage;
   if (!img) {
     fprintf(stderr, "Unable to allocate memory\n");
     exit(1);
   }
 
-  c = getc(fp);
+  int c = getc(fp);
   while (c == '#') {
     while (getc(fp) != '\n')
       ;
@@ -64,12 +62,13 @@ static PPMImage *readPPM(const char *filename) {
   }
 
   ungetc(c, fp);
-  if (fscanf(fp, "%d %d", &img->x, &img->y) != 2) {
+  if (fscanf(fp, "%u %u", &img->x, &img->y) != 2) {
     fprintf(stderr, "Invalid image size (error loading '%s')\n", filename);
     exit(1);
   }
 
-  if (fscanf(fp, "%d", &rgb_comp_color) != 1) {
+  unsigned rgb_comp_color;
+  if (fscanf(fp, "%u", &rgb_comp_color) != 1) {
     fprintf(stderr, "Invalid rgb component (error loading '%s')\n", filename);
     exit(1);
   }
@@ -81,7 +80,7 @@ static PPMImage *readPPM(const char *filename) {
 
   while (fgetc(fp) != '\n')
     ;
-  img->data = (PPMPixel *)malloc(img->x * img->y * sizeof(PPMPixel));
+  img->data = new PPMPixel[img->x * img->y];
 
   if (!img) {
     fprintf(stderr, "Unable to allocate memory\n");
@@ -97,15 +96,13 @@ static PPMImage *readPPM(const char *filename) {
   return img;
 }
 
-__global__ void histogram_kernel() {
+static __launch_bounds__(1) __global__ void histogram_kernel() {
   printf("Warning: histogram_kernel not implemented!\n");
 }
 
-double Histogram(PPMImage *image, float *h_h) {
-  float ms;
-  cudaEvent_t start, stop;
-
+static double Histogram(PPMImage *image, float *h_h) {
   // Create Events
+  cudaEvent_t start, stop;
   CUDACHECK(cudaEventCreate(&start));
   CUDACHECK(cudaEventCreate(&stop));
 
@@ -116,6 +113,7 @@ double Histogram(PPMImage *image, float *h_h) {
   histogram_kernel<<<1, 1>>>();
   CUDACHECK(cudaEventRecord(stop));
   CUDACHECK(cudaEventSynchronize(stop));
+  float ms;
   CUDACHECK(cudaEventElapsedTime(&ms, start, stop));
 
   // Destroy events
@@ -125,15 +123,14 @@ double Histogram(PPMImage *image, float *h_h) {
   return ((double)ms) / 1000.0;
 }
 
-int main(int argc, char *argv[]) {
-
-  if (argc < 2) {
+int main(const int argc, const char *const *const argv) {
+  if (argc != 2) {
     fprintf(stderr, "Error: missing path to input file\n");
-    return 1;
+    return EXIT_FAILURE;
   }
 
   PPMImage *image = readPPM(argv[1]);
-  float *h = (float *)malloc(sizeof(float) * 64);
+  float *h = new float[64];
 
   // Initialize histogram
   for (int i = 0; i < 64; i++)
@@ -147,5 +144,7 @@ int main(int argc, char *argv[]) {
   printf("\n");
 
   fprintf(stderr, "%lf\n", t);
-  free(h);
+  delete[] h;
+
+  return EXIT_SUCCESS;
 }
