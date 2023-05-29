@@ -6,8 +6,10 @@
 #include <omp.h>
 
 #include <algorithm>
+#include <fstream>
 #include <optional>
 #include <stdexcept>
+#include <string>
 #include <type_traits>
 
 /** Marker for conditional expressions that are unlikely to happen. */
@@ -326,88 +328,100 @@ namespace cuda {
 static constexpr const char *COMMENT = "Histogram_GPU";
 static constexpr unsigned RGB_COMPONENT_COLOR = 255;
 
-struct PPMPixel final {
-  uint8_t red;
-  uint8_t green;
-  uint8_t blue;
-};
+namespace PPM {
+  struct [[gnu::packed]] Pixel final {
+  public:
+    Pixel() = delete;
 
-struct PPMImage final {
-  unsigned x, y;
-  PPMPixel *data;
-};
+    uint8_t red;
+    uint8_t green;
+    uint8_t blue;
+  };
+  static_assert(sizeof(Pixel) == 3 * sizeof(uint8_t));
 
-static PPMImage *readPPM(const char *filename) {
-  FILE *fp = fopen(filename, "rb");
-  if (!fp) {
-    fprintf(stderr, "Unable to open file '%s'\n", filename);
-    exit(1);
-  }
+  template <cuda::context ctx>
+  /** Image implemented as a Execution-Space-aware array of pixels. */
+  struct Image final : public cuda::array_like<Pixel, ctx> {
+  private:
+    static unsigned total_size(unsigned width, unsigned height) {
+      const auto size = checked_mul(width, height);
+      if unlikely (!size.has_value()) {
+        throw std::bad_alloc();
+      }
+      return *size;
+    }
 
-  char buff[16];
-  if (!fgets(buff, sizeof(buff), fp)) {
-    perror(filename);
-    exit(1);
-  }
+  private:
+    const unsigned width_, height_;
+    cuda::array<Pixel, ctx> content;
 
-  if (buff[0] != 'P' || buff[1] != '6') {
-    fprintf(stderr, "Invalid image format (must be 'P6')\n");
-    exit(1);
-  }
+  public:
+    Image(const unsigned width, const unsigned height)
+        : width_(width), height_(height), content(total_size(width, height)) {}
 
-  PPMImage *img = new PPMImage;
-  if (!img) {
-    fprintf(stderr, "Unable to allocate memory\n");
-    exit(1);
-  }
+    constexpr Image(Image<ctx> &&image) noexcept = default;
 
-  int c = getc(fp);
-  while (c == '#') {
-    while (getc(fp) != '\n')
-      ;
-    c = getc(fp);
-  }
+    template <cuda::context other, class = std::enable_if_t<other != ctx>>
+    Image(const Image<other> &image)
+        : width_(image.width()), height_(image.height()), content(image.size()) {
+      this->copy_from(image);
+    }
 
-  ungetc(c, fp);
-  if (fscanf(fp, "%u %u", &img->x, &img->y) != 2) {
-    fprintf(stderr, "Invalid image size (error loading '%s')\n", filename);
-    exit(1);
-  }
+    inline __device__ __host__ Pixel *data() const noexcept {
+      return content.data();
+    }
 
-  unsigned rgb_comp_color;
-  if (fscanf(fp, "%u", &rgb_comp_color) != 1) {
-    fprintf(stderr, "Invalid rgb component (error loading '%s')\n", filename);
-    exit(1);
-  }
+    inline __device__ __host__ unsigned size() const noexcept {
+      return content.size();
+    }
 
-  if (rgb_comp_color != RGB_COMPONENT_COLOR) {
-    fprintf(stderr, "'%s' does not have 8-bits components\n", filename);
-    exit(1);
-  }
+    constexpr __device__ __host__ unsigned width() const noexcept {
+      return width_;
+    }
 
-  while (fgetc(fp) != '\n')
-    ;
-  img->data = new PPMPixel[img->x * img->y];
+    constexpr __device__ __host__ unsigned height() const noexcept {
+      return height_;
+    }
 
-  if (!img) {
-    fprintf(stderr, "Unable to allocate memory\n");
-    exit(1);
-  }
+    static Image<ctx> read(const char *filename) {
+      auto file = std::ifstream();
+      file.exceptions(std::ifstream::badbit | std::ifstream::failbit | std::ifstream::eofbit);
+      file.open(filename, std::fstream::in);
 
-  if (fread(img->data, 3 * img->x, img->y, fp) != img->y) {
-    fprintf(stderr, "Error loading image '%s'\n", filename);
-    exit(1);
-  }
+      auto line = std::string();
+      std::getline(file, line);
+      if unlikely (line != "P6") {
+        throw std::invalid_argument("Invalid image format (must be 'P6')");
+      }
 
-  fclose(fp);
-  return img;
-}
+      constexpr auto max_size = std::numeric_limits<std::streamsize>::max();
+      while (file.get() == '#') {
+        file.ignore(max_size, '\n');
+      }
+      file.unget();
+
+      unsigned width, height;
+      unsigned component_color;
+      file >> width >> height >> component_color;
+      if unlikely (component_color != RGB_COMPONENT_COLOR) {
+        throw std::invalid_argument("Image does not have 8-bits components");
+      }
+      file.ignore(max_size, '\n');
+
+      auto image = Image<cuda::host>(width, height);
+      const auto bytes = checked_mul<std::streamsize>(image.size(), sizeof(Pixel)).value();
+      file.read(reinterpret_cast<char *>(image.data()), bytes);
+
+      return image;
+    }
+  };
+}; // namespace PPM
 
 static __launch_bounds__(1) __global__ void histogram_kernel() {
   printf("Warning: histogram_kernel not implemented!\n");
 }
 
-static double Histogram(PPMImage *image, float *h_h) {
+static double Histogram(PPM::Image<cuda::host> &image, cuda::array<float, cuda::host> &h) {
   // Create Events
   cudaEvent_t start, stop;
   CUDACHECK(cudaEventCreate(&start));
@@ -436,8 +450,8 @@ int main(const int argc, const char *const *const argv) {
     return EXIT_FAILURE;
   }
 
-  PPMImage *image = readPPM(argv[1]);
-  float *h = new float[64];
+  auto image = PPM::Image<cuda::host>::read(argv[1]);
+  auto h = cuda::array<float, cuda::host>(64);
 
   // Initialize histogram
   for (int i = 0; i < 64; i++)
@@ -451,7 +465,6 @@ int main(const int argc, const char *const *const argv) {
   printf("\n");
 
   fprintf(stderr, "%lf\n", t);
-  delete[] h;
 
   return EXIT_SUCCESS;
 }
