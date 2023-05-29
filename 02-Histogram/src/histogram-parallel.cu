@@ -107,6 +107,218 @@ namespace cuda {
 
     return static_cast<size_t>(count) * sizeof(T);
   }
+
+  /** Memory context, associated with a Function Execution Space Specifier. */
+  enum context {
+    /** __host__ space (usually the CPU and main memory context). */
+    host,
+    /** __device__ space (one or more GPUs contexts). */
+    device
+  };
+
+  template <typename T, context ctx>
+  /** Allocates memory in 'ctx' for exactly 'count' elements of 'T'. */
+  static T *malloc_exact(const unsigned count) {
+    T *ptr = nullptr;
+
+    if (ctx == context::device) {
+      error::check(cudaMalloc(&ptr, byte_size<T>(count)));
+    } else {
+      error::check(cudaMallocHost(&ptr, byte_size<T>(count)));
+    }
+    return ptr;
+  }
+
+  template <typename T, context ctx>
+  /** Zeroes memory for 'count' elements of 'T' in 'ptr'. */
+  static void memset_zero(T *ptr, const unsigned count) noexcept(ctx == context::host) {
+    if (ctx == context::device) {
+      error::check(cudaMemset(ptr, 0, byte_size<T>(count)));
+    } else {
+      memset(ptr, 0, byte_size<T>(count));
+    }
+  }
+
+  template <typename T, context ctx>
+  /** Allocate 'count' elements of 'T' in the 'ctx'. */
+  [[gnu::malloc]] static T *malloc(const unsigned count) {
+    // the number of elements is rounded so that the size is evenly divisible by BLOCK_SIZE
+    const unsigned closest_count = nearest_block_multiple(count);
+
+    T *ptr = malloc_exact<T, ctx>(count);
+    // set the unused elements to zero
+    if (count < closest_count) {
+      memset_zero<T, ctx>(&ptr[count], closest_count - count);
+    }
+    return ptr;
+  }
+
+  template <typename T, context ctx>
+  /** Release memory allocated in 'cuda::malloc'. */
+  static void free(T *ptr) {
+    if (ctx == context::device) {
+      error::check(cudaFree(ptr));
+    } else {
+      error::check(cudaFreeHost(ptr));
+    }
+  }
+
+  template <context src_ctx, context dst_ctx>
+  /** Dictates the kind of memcpy used in 'cudaMemcpy', given source and destination contexts. */
+  static constexpr cudaMemcpyKind memcpy_kind() noexcept {
+    switch (src_ctx) {
+    case context::host:
+      switch (dst_ctx) {
+      case context::host:
+        return cudaMemcpyHostToHost;
+      case context::device:
+        return cudaMemcpyHostToDevice;
+      default:
+        return cudaMemcpyDefault;
+      }
+    case context::device:
+      switch (dst_ctx) {
+      case context::host:
+        return cudaMemcpyDeviceToHost;
+      case context::device:
+        return cudaMemcpyDeviceToDevice;
+      default:
+        return cudaMemcpyDefault;
+      }
+    default:
+      return cudaMemcpyDefault;
+    }
+  }
+
+  template <typename T, context dst_ctx, context src_ctx>
+  /** Copies 'count' elements of 'T' from 'src' to 'dst', given their contexts. */
+  static void memcpy(T *dst, const T *src, const unsigned count) {
+    error::check(cudaMemcpy(dst, src, byte_size<T>(count), memcpy_kind<src_ctx, dst_ctx>()));
+  }
+
+  template <typename T, context ctx>
+  /** A CUDA Execution-Space aware pointer that behaves like an array of 'T'. */
+  class array_like {};
+
+  template <typename T>
+  /** A pointer that behaves like an array of 'T' in host execution space. */
+  class array_like<T, context::host> {
+  public:
+    virtual ~array_like() {}
+
+    /** Pointer to the underlying array, accessible in any context. */
+    virtual __host__ __device__ T *data() const noexcept = 0;
+    /** Array size, accessible in any context. */
+    virtual __host__ __device__ unsigned size() const noexcept = 0;
+
+    inline __host__ T *begin() noexcept {
+      return data();
+    }
+    inline __host__ const T *begin() const noexcept {
+      return data();
+    }
+
+    inline __host__ T *end() noexcept {
+      return data() + size();
+    }
+    inline __host__ const T *end() const noexcept {
+      return data() + size();
+    }
+
+    inline __host__ T &operator[](const unsigned index) noexcept {
+      return data()[index];
+    }
+    inline __host__ const T &operator[](const unsigned index) const noexcept {
+      return data()[index];
+    }
+
+    template <context other>
+    /** Copies data from another array, possibly in another context. */
+    __host__ void copy_from(const array_like<T, other> &source) {
+      if unlikely (size() < source.size()) {
+        throw std::range_error("source array is not big enough");
+      }
+      memcpy<T, context::host, other>(data(), source.data(), size());
+    }
+  };
+
+  template <typename T>
+  /** A pointer that behaves like an array of 'T' in device execution space. */
+  class array_like<T, context::device> {
+  public:
+    virtual ~array_like() {}
+
+    /** Pointer to the underlying array, accessible in any context. */
+    virtual __host__ __device__ T *data() const noexcept = 0;
+    /** Array size, accessible in any context. */
+    virtual __host__ __device__ unsigned size() const noexcept = 0;
+
+    inline __device__ T *begin() noexcept {
+      return data();
+    }
+    inline __device__ const T *begin() const noexcept {
+      return data();
+    }
+
+    inline __device__ T *end() noexcept {
+      return data() + size();
+    }
+    inline __device__ const T *end() const noexcept {
+      return data() + size();
+    }
+
+    inline __device__ T &operator[](const unsigned index) noexcept {
+      return data()[index];
+    }
+    inline __device__ const T &operator[](const unsigned index) const noexcept {
+      return data()[index];
+    }
+
+    template <context other>
+    /** Copies data from another array, possibly in another context. */
+    __host__ void copy_from(const array_like<T, other> &source) {
+      if unlikely (size() < source.size()) {
+        throw std::range_error("source array is not big enough");
+      }
+      memcpy<T, context::device, other>(data(), source.data(), size());
+    }
+  };
+
+  template <typename T, context ctx>
+  /** A CUDA Execution-Space aware smart pointer that behaves like an array of 'T'. */
+  class array final : public array_like<T, ctx> {
+  private:
+    const unsigned size_;
+    T *const data_;
+
+  public:
+    /** Allocates an array of 'size' elements. */
+    explicit array(const unsigned size) : size_(size), data_(malloc<T, ctx>(size)) {}
+
+    /** Prevent implicit copies. */
+    array(array<T, ctx> &) = delete;
+    array(const array<T, ctx> &) = delete;
+    /** Moves should still be okay. */
+    constexpr array(array<T, ctx> &&) noexcept = default;
+
+    template <context other, class = std::enable_if_t<other != ctx>>
+    /** Allows copies from different context. */
+    array(const array<T, other> &source) : array(source.size()) {
+      array_like<T, ctx>::copy_from(source);
+    }
+
+    ~array() {
+      free<T, ctx>(data());
+    }
+
+    inline __device__ __host__ T *data() const noexcept {
+      return data_;
+    }
+
+    inline __device__ __host__ unsigned size() const noexcept {
+      return size_;
+    }
+  };
 } // namespace cuda
 
 #define CUDACHECK(cmd) cuda::error::check(cmd)
