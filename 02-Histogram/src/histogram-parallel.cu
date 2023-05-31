@@ -109,7 +109,7 @@ namespace cuda {
   }
 
   /** Memory context, associated with a Function Execution Space Specifier. */
-  enum context {
+  enum context : bool {
     /** __host__ space (usually the CPU and main memory context). */
     host,
     /** __device__ space (one or more GPUs contexts). */
@@ -145,11 +145,22 @@ namespace cuda {
     // the number of elements is rounded so that the size is evenly divisible by BLOCK_SIZE
     const unsigned closest_count = nearest_block_multiple(count);
 
-    T *ptr = malloc_exact<T, ctx>(count);
+    T *ptr = malloc_exact<T, ctx>(closest_count);
     // set the unused elements to zero
     if (count < closest_count) {
       memset_zero<T, ctx>(&ptr[count], closest_count - count);
     }
+    return ptr;
+  }
+
+  template <typename T, context ctx>
+  /** Allocate 'count' elements of 'T' in the 'ctx'. */
+  [[gnu::malloc]] static T *calloc(const unsigned count) {
+    // the number of elements is rounded so that the size is evenly divisible by BLOCK_SIZE
+    const unsigned closest_count = nearest_block_multiple(count);
+
+    T *ptr = malloc_exact<T, ctx>(closest_count);
+    memset_zero<T, ctx>(ptr, closest_count);
     return ptr;
   }
 
@@ -196,104 +207,18 @@ namespace cuda {
     error::check(cudaMemcpy(dst, src, byte_size<T>(count), memcpy_kind<src_ctx, dst_ctx>()));
   }
 
-  template <typename T, context ctx>
-  /** A CUDA Execution-Space aware pointer that behaves like an array of 'T'. */
-  class array_like {};
-
-  template <typename T>
-  /** A pointer that behaves like an array of 'T' in host execution space. */
-  class array_like<T, context::host> {
-  public:
-    virtual ~array_like() {}
-
-    /** Pointer to the underlying array, accessible in any context. */
-    virtual __host__ __device__ T *data() const noexcept = 0;
-    /** Array size, accessible in any context. */
-    virtual __host__ __device__ unsigned size() const noexcept = 0;
-
-    inline __host__ T *begin() noexcept {
-      return data();
-    }
-    inline __host__ const T *begin() const noexcept {
-      return data();
-    }
-
-    inline __host__ T *end() noexcept {
-      return data() + size();
-    }
-    inline __host__ const T *end() const noexcept {
-      return data() + size();
-    }
-
-    inline __host__ T &operator[](const unsigned index) noexcept {
-      return data()[index];
-    }
-    inline __host__ const T &operator[](const unsigned index) const noexcept {
-      return data()[index];
-    }
-
-    template <context other>
-    /** Copies data from another array, possibly in another context. */
-    __host__ void copy_from(const array_like<T, other> &source) {
-      if unlikely (size() < source.size()) {
-        throw std::range_error("source array is not big enough");
-      }
-      memcpy<T, context::host, other>(data(), source.data(), size());
-    }
-  };
-
-  template <typename T>
-  /** A pointer that behaves like an array of 'T' in device execution space. */
-  class array_like<T, context::device> {
-  public:
-    virtual ~array_like() {}
-
-    /** Pointer to the underlying array, accessible in any context. */
-    virtual __host__ __device__ T *data() const noexcept = 0;
-    /** Array size, accessible in any context. */
-    virtual __host__ __device__ unsigned size() const noexcept = 0;
-
-    inline __device__ T *begin() noexcept {
-      return data();
-    }
-    inline __device__ const T *begin() const noexcept {
-      return data();
-    }
-
-    inline __device__ T *end() noexcept {
-      return data() + size();
-    }
-    inline __device__ const T *end() const noexcept {
-      return data() + size();
-    }
-
-    inline __device__ T &operator[](const unsigned index) noexcept {
-      return data()[index];
-    }
-    inline __device__ const T &operator[](const unsigned index) const noexcept {
-      return data()[index];
-    }
-
-    template <context other>
-    /** Copies data from another array, possibly in another context. */
-    __host__ void copy_from(const array_like<T, other> &source) {
-      if unlikely (size() < source.size()) {
-        throw std::range_error("source array is not big enough");
-      }
-      memcpy<T, context::device, other>(data(), source.data(), size());
-    }
-  };
-
-  template <typename T, context ctx>
+  template <typename T, context ctx = cuda::context::host>
   /** A CUDA Execution-Space aware smart pointer that behaves like an array of 'T'. */
-  class array final : public array_like<T, ctx> {
+  class array final {
   private:
     const unsigned size_;
     T *const data_;
 
+    explicit array(const unsigned size, T *const data) : size_(size), data_(data) {}
+
   public:
     /** Allocates an array of 'size' elements. */
-    explicit array(const unsigned size) : size_(size), data_(malloc<T, ctx>(size)) {}
+    explicit array(const unsigned count) : array(count, malloc<T, ctx>(count)) {}
 
     /** Prevent implicit copies. */
     array(array<T, ctx> &) = delete;
@@ -301,22 +226,61 @@ namespace cuda {
     /** Moves should still be okay. */
     constexpr array(array<T, ctx> &&) noexcept = default;
 
-    template <context other, class = std::enable_if_t<other != ctx>>
-    /** Allows copies from different context. */
-    array(const array<T, other> &source) : array(source.size()) {
-      array_like<T, ctx>::copy_from(source);
+    /** Copies data from another array, possibly in another context. */
+    static array<T, ctx> zeroed(const unsigned count) {
+      return array<T, ctx>(count, calloc<T, ctx>(count));
+    }
+
+    template <context other>
+    /** Copies data from another array, possibly in another context. */
+    static array<T, ctx> copy_from(const array<T, other> &source) {
+      auto dst = array<T, ctx>(source.size());
+      memcpy<T, ctx, other>(dst.data(), source.data(), dst.size());
+      return dst;
     }
 
     ~array() {
       free<T, ctx>(data());
     }
 
-    inline __device__ __host__ T *data() const noexcept {
+    /** Pointer to the underlying array. */
+    constexpr T *data() noexcept {
+      return data_;
+    }
+    constexpr const T *data() const noexcept {
       return data_;
     }
 
-    inline __device__ __host__ unsigned size() const noexcept {
+    /** Array size. */
+    constexpr unsigned size() const noexcept {
       return size_;
+    }
+
+    inline T *begin() noexcept {
+      static_assert(ctx == context::host);
+      return data();
+    }
+    inline const T *begin() const noexcept {
+      static_assert(ctx == context::host);
+      return data();
+    }
+
+    inline T *end() noexcept {
+      static_assert(ctx == context::host);
+      return data() + size();
+    }
+    inline const T *end() const noexcept {
+      static_assert(ctx == context::host);
+      return data() + size();
+    }
+
+    inline T &operator[](const unsigned index) noexcept {
+      static_assert(ctx == context::host);
+      return data()[index];
+    }
+    inline const T &operator[](const unsigned index) const noexcept {
+      static_assert(ctx == context::host);
+      return data()[index];
     }
   };
 
@@ -375,24 +339,41 @@ namespace cuda {
   };
 } // namespace cuda
 
+/** Image utilities for PPM format. */
 namespace PPM {
-  static constexpr unsigned RGB_COMPONENT_COLOR = 255;
-
+  /** A single pixel in a PPM image. */
   struct [[gnu::packed]] Pixel final {
   public:
     Pixel() = delete;
 
-    uint8_t red;
-    uint8_t green;
-    uint8_t blue;
-  };
-  static_assert(sizeof(Pixel) == 3 * sizeof(uint8_t));
+    /** Represents a single color in a pixel. */
+    using Component = uint8_t;
+    // each color component should be a single byte
+    static_assert(sizeof(Component) == 1);
 
-  template <cuda::context ctx>
-  /** Image implemented as a Execution-Space-aware array of pixels. */
-  struct Image final : public cuda::array_like<Pixel, ctx> {
+    Component red;
+    Component green;
+    Component blue;
+
+    /** Number of color components in a pixel. */
+    static constexpr unsigned components() noexcept {
+      return (sizeof(Pixel::red) + sizeof(Pixel::green) + sizeof(Pixel::blue)) /
+             sizeof(Pixel::Component);
+    }
+
+    /** Maximum value for a color component. */
+    static constexpr unsigned component_color() noexcept {
+      return std::numeric_limits<Component>::max();
+    }
+  };
+  // each pixel must have its components tightly packed
+  static_assert(sizeof(Pixel) == Pixel::components() * sizeof(Pixel::Component));
+
+  /** Image implemented as an array of pixels. */
+  struct Image final {
   private:
-    static unsigned total_size(unsigned width, unsigned height) {
+    /** Size for the allocated array, given the image dimensions. */
+    static unsigned alloc_size(unsigned width, unsigned height) {
       const auto size = checked_mul(width, height);
       if unlikely (!size.has_value()) {
         throw std::bad_alloc();
@@ -400,39 +381,37 @@ namespace PPM {
       return *size;
     }
 
-  private:
-    const unsigned width_, height_;
-    cuda::array<Pixel, ctx> content;
+    cuda::array<Pixel> content_;
+
+    constexpr Pixel *data() noexcept {
+      return content_.data();
+    }
+
+    /** Allocate a new image with 'width * height' pixels. */
+    Image(const unsigned width, const unsigned height) : content_(alloc_size(width, height)) {}
 
   public:
-    Image(const unsigned width, const unsigned height)
-        : width_(width), height_(height), content(total_size(width, height)) {}
+    Image(Image &) = delete;
+    Image(const Image &) = delete;
+    constexpr Image(Image &&image) noexcept = default;
 
-    constexpr Image(Image<ctx> &&image) noexcept = default;
-
-    template <cuda::context other, class = std::enable_if_t<other != ctx>>
-    Image(const Image<other> &image)
-        : width_(image.width()), height_(image.height()), content(image.size()) {
-      this->copy_from(image);
+    /** The pixels that form the image. */
+    constexpr const cuda::array<Pixel> &content() const noexcept {
+      return content_;
     }
 
-    inline __device__ __host__ Pixel *data() const noexcept {
-      return content.data();
+    /** Number of pixels in the image. */
+    constexpr unsigned size() const noexcept {
+      return content_.size();
     }
 
-    inline __device__ __host__ unsigned size() const noexcept {
-      return content.size();
+    /** Size in byte for all the image pixels. */
+    constexpr std::streamsize bytes() const noexcept {
+      return checked_mul<std::streamsize>(size(), sizeof(Pixel)).value();
     }
 
-    constexpr __device__ __host__ unsigned width() const noexcept {
-      return width_;
-    }
-
-    constexpr __device__ __host__ unsigned height() const noexcept {
-      return height_;
-    }
-
-    static Image<ctx> read(const char *filename) {
+    /** Read a PPM image from file located at 'filename'. */
+    static Image read(const char *filename) {
       auto file = std::ifstream();
       file.exceptions(std::ifstream::badbit | std::ifstream::failbit | std::ifstream::eofbit);
       file.open(filename, std::fstream::in);
@@ -452,14 +431,13 @@ namespace PPM {
       unsigned width, height;
       unsigned component_color;
       file >> width >> height >> component_color;
-      if unlikely (component_color != RGB_COMPONENT_COLOR) {
+      if unlikely (component_color != Pixel::component_color()) {
         throw std::invalid_argument("Image does not have 8-bits components");
       }
       file.ignore(max_size, '\n');
 
-      auto image = Image<cuda::host>(width, height);
-      const auto bytes = checked_mul<std::streamsize>(image.size(), sizeof(Pixel)).value();
-      file.read(reinterpret_cast<char *>(image.data()), bytes);
+      auto image = Image(width, height);
+      file.read(reinterpret_cast<char *>(image.data()), image.bytes());
 
       return image;
     }
@@ -472,7 +450,7 @@ static __launch_bounds__(cuda::BLOCK_SIZE) __global__ void histogram_kernel() {
 
 using seconds = std::chrono::duration<double>;
 
-static seconds histogram(PPM::Image<cuda::host> &image, cuda::array<float, cuda::host> &h) {
+static seconds histogram(PPM::Image &image, std::array<double, histogram::SIZE> &h) {
   // Create Events
   auto start = cuda::event::create();
   auto stop = cuda::event::create();
@@ -494,7 +472,7 @@ int main(const int argc, const char *const *const argv) {
     return EXIT_FAILURE;
   }
 
-  auto image = PPM::Image<cuda::host>::read(argv[1]);
+  const auto image = PPM::Image::read(argv[1]);
   auto h = cuda::array<float, cuda::host>(64);
 
   // Initialize histogram
