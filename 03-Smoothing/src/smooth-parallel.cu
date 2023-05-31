@@ -9,6 +9,7 @@
 #include <optional>
 #include <stdexcept>
 #include <string>
+#include <tuple>
 #include <type_traits>
 
 /** Marker for conditional expressions that are unlikely to happen. */
@@ -328,6 +329,7 @@ namespace PPM {
       return *size;
     }
 
+    const std::pair<unsigned, unsigned> dim;
     cuda::array<Pixel> content_;
 
     constexpr Pixel *data() noexcept {
@@ -335,7 +337,8 @@ namespace PPM {
     }
 
     /** Allocate a new image with 'width * height' pixels. */
-    Image(const unsigned width, const unsigned height) : content_(alloc_size(width, height)) {}
+    Image(const unsigned width, const unsigned height)
+        : dim(width, height), content_(alloc_size(width, height)) {}
 
   public:
     Image(Image &) = delete;
@@ -347,6 +350,20 @@ namespace PPM {
       return content_;
     }
 
+    constexpr const Pixel *data() const noexcept {
+      return content().data();
+    }
+
+    /** Number of pixels in a row. */
+    constexpr unsigned width() const noexcept {
+      return dim.first;
+    }
+
+    /** Number of pixels in a column. */
+    constexpr unsigned height() const noexcept {
+      return dim.second;
+    }
+
     /** Number of pixels in the image. */
     constexpr unsigned size() const noexcept {
       return content_.size();
@@ -355,6 +372,13 @@ namespace PPM {
     /** Size in byte for all the image pixels. */
     constexpr std::streamsize bytes() const noexcept {
       return checked_mul<std::streamsize>(size(), sizeof(Pixel)).value();
+    }
+
+    /** An explicit copy constructor. */
+    Image clone() const {
+      auto cloned = Image(width(), height());
+      cuda::memcpy<Pixel, cuda::host, cuda::host>(cloned.data(), data(), size());
+      return cloned;
     }
 
     /** Read a PPM image from file located at 'filename'. */
@@ -388,19 +412,19 @@ namespace PPM {
 
       return image;
     }
+
+    /** Write image to stream. */
+    [[gnu::noinline]] friend std::ostream &operator<<(std::ostream &os, const Image &image) {
+      constexpr auto COMMENT = "Smoothing GPU";
+
+      auto &outs = os << "P6" << '\n'
+                      << "# " << COMMENT << '\n'
+                      << image.width() << ' ' << image.height() << '\n'
+                      << Pixel::component_color() << '\n';
+      return outs.write(reinterpret_cast<const char *>(image.data()), image.bytes());
+    }
   };
 } // namespace PPM
-
-static void writePPM(const PPM::Image &img) {
-
-  // fprintf(stdout, "P6\n");
-  // fprintf(stdout, "# %s\n", COMMENT);
-  // fprintf(stdout, "%d %d\n", img->x, img->y);
-  // fprintf(stdout, "%d\n", RGB_COMPONENT_COLOR);
-
-  // fwrite(img->data, 3 * img->x, img->y, stdout);
-  // fclose(stdout);
-}
 
 #define MASK_WIDTH 15
 
@@ -434,7 +458,7 @@ int main(const int argc, const char *const *const argv) {
 
   // Read input file
   const auto image = PPM::Image::read(filename);
-  auto image_output = PPM::Image::read(filename);
+  auto image_output = image.clone();
 
   // Call Smoothing Kernel
   double t = omp_get_wtime();
@@ -442,7 +466,7 @@ int main(const int argc, const char *const *const argv) {
   t = omp_get_wtime() - t;
 
   // Write result to stdout
-  writePPM(image_output);
+  std::cout << image_output << std::endl;
 
   // Print time to stderr
   std::cerr << std::fixed << t << std::endl;
