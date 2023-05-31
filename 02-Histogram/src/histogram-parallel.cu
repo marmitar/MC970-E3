@@ -1,7 +1,7 @@
 #include <cuda.h>
-#include <omp.h>
 
 #include <algorithm>
+#include <chrono>
 #include <fstream>
 #include <iomanip>
 #include <iostream>
@@ -319,13 +319,65 @@ namespace cuda {
       return size_;
     }
   };
+
+  /** Smart wrapper for 'cudaEvent_t'. */
+  class event final {
+  private:
+    cudaEvent_t handle = nullptr;
+
+    explicit event() {
+      error::check(cudaEventCreateWithFlags(&handle, cudaEventDefault | cudaEventBlockingSync));
+    }
+
+  public:
+    /** Prevent implicit copies. */
+    event(event &) = delete;
+    event(const event &) = delete;
+    /** Moves should still be okay. */
+    constexpr event(event &&) noexcept = default;
+
+    static event create() {
+      return event();
+    }
+
+    ~event() {
+      error::check(cudaEventDestroy(handle));
+      handle = nullptr;
+    }
+
+    void query() const {
+      error::check(cudaEventQuery(handle));
+    }
+
+    void record(cudaStream_t stream = 0) {
+      error::check(cudaEventRecord(handle, stream));
+    }
+
+    void synchronize() {
+      error::check(cudaEventSynchronize(handle));
+    }
+
+    using milliseconds = std::chrono::duration<float, std::milli>;
+
+    static milliseconds elapsed_time(const event &start, const event &end) {
+      float ms = 0.0f;
+      error::check(cudaEventElapsedTime(&ms, start.handle, end.handle));
+      return milliseconds(ms);
+    }
+
+    milliseconds elapsed_from(const event &start) const {
+      return elapsed_time(start, *this);
+    }
+
+    milliseconds operator-(const event &start) const {
+      return elapsed_from(start);
+    }
+  };
 } // namespace cuda
 
-#define CUDACHECK(cmd) cuda::error::check(cmd)
-
-static constexpr unsigned RGB_COMPONENT_COLOR = 255;
-
 namespace PPM {
+  static constexpr unsigned RGB_COMPONENT_COLOR = 255;
+
   struct [[gnu::packed]] Pixel final {
   public:
     Pixel() = delete;
@@ -418,27 +470,22 @@ static __launch_bounds__(cuda::BLOCK_SIZE) __global__ void histogram_kernel() {
   printf("Warning: histogram_kernel not implemented!\n");
 }
 
-static double Histogram(PPM::Image<cuda::host> &image, cuda::array<float, cuda::host> &h) {
+using seconds = std::chrono::duration<double>;
+
+static seconds histogram(PPM::Image<cuda::host> &image, cuda::array<float, cuda::host> &h) {
   // Create Events
-  cudaEvent_t start, stop;
-  CUDACHECK(cudaEventCreate(&start));
-  CUDACHECK(cudaEventCreate(&stop));
+  auto start = cuda::event::create();
+  auto stop = cuda::event::create();
 
   // Launch kernel and compute kernel runtime.
   // Warning: make sure only the kernel is being profiled, memcpies should be
   // out of this region.
-  CUDACHECK(cudaEventRecord(start));
+  start.record();
   histogram_kernel<<<1, 1>>>();
-  CUDACHECK(cudaEventRecord(stop));
-  CUDACHECK(cudaEventSynchronize(stop));
-  float ms;
-  CUDACHECK(cudaEventElapsedTime(&ms, start, stop));
+  stop.record();
+  stop.synchronize();
 
-  // Destroy events
-  CUDACHECK(cudaEventDestroy(start));
-  CUDACHECK(cudaEventDestroy(stop));
-
-  return static_cast<double>(ms) / 1000.0;
+  return stop - start;
 }
 
 int main(const int argc, const char *const *const argv) {
@@ -456,13 +503,13 @@ int main(const int argc, const char *const *const argv) {
   }
 
   // Compute histogram
-  const double t = Histogram(image, h);
+  const auto elapsed = histogram(image, h);
 
   for (const float hi : h) {
     std::cout << std::fixed << std::setprecision(3) << hi << ' ';
   }
   std::cout << std::endl;
 
-  std::cerr << std::fixed << t << std::endl;
+  std::cerr << std::fixed << elapsed.count() << std::endl;
   return EXIT_SUCCESS;
 }
