@@ -1,12 +1,10 @@
-#include <cmath>
-#include <cstdint>
-#include <cstdio>
-#include <cstdlib>
 #include <cuda.h>
 #include <omp.h>
 
 #include <algorithm>
 #include <fstream>
+#include <iomanip>
+#include <iostream>
 #include <optional>
 #include <stdexcept>
 #include <string>
@@ -325,7 +323,6 @@ namespace cuda {
 
 #define CUDACHECK(cmd) cuda::error::check(cmd)
 
-static constexpr const char *COMMENT = "Histogram_GPU";
 static constexpr unsigned RGB_COMPONENT_COLOR = 255;
 
 namespace PPM {
@@ -417,7 +414,7 @@ namespace PPM {
   };
 }; // namespace PPM
 
-static __launch_bounds__(1) __global__ void histogram_kernel() {
+static __launch_bounds__(cuda::BLOCK_SIZE) __global__ void histogram_kernel() {
   printf("Warning: histogram_kernel not implemented!\n");
 }
 
@@ -441,12 +438,12 @@ static double Histogram(PPM::Image<cuda::host> &image, cuda::array<float, cuda::
   CUDACHECK(cudaEventDestroy(start));
   CUDACHECK(cudaEventDestroy(stop));
 
-  return ((double)ms) / 1000.0;
+  return static_cast<double>(ms) / 1000.0;
 }
 
 int main(const int argc, const char *const *const argv) {
-  if (argc != 2) {
-    fprintf(stderr, "Error: missing path to input file\n");
+  if unlikely (argc != 2) {
+    throw std::invalid_argument("Error: missing path to input file\n");
     return EXIT_FAILURE;
   }
 
@@ -454,17 +451,18 @@ int main(const int argc, const char *const *const argv) {
   auto h = cuda::array<float, cuda::host>(64);
 
   // Initialize histogram
-  for (int i = 0; i < 64; i++)
-    h[i] = 0.0;
+  for (float &hi : h) {
+    hi = 0.0;
+  }
 
   // Compute histogram
-  double t = Histogram(image, h);
+  const double t = Histogram(image, h);
 
-  for (int i = 0; i < 64; i++)
-    printf("%0.3f ", h[i]);
-  printf("\n");
+  for (const float hi : h) {
+    std::cout << std::fixed << std::setprecision(3) << hi << ' ';
+  }
+  std::cout << std::endl;
 
-  fprintf(stderr, "%lf\n", t);
-
+  std::cerr << std::fixed << t << std::endl;
   return EXIT_SUCCESS;
 }
