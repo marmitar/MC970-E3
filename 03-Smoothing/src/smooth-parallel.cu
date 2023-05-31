@@ -3,10 +3,12 @@
 
 #include <algorithm>
 #include <cstdio>
+#include <fstream>
 #include <iomanip>
 #include <iostream>
 #include <optional>
 #include <stdexcept>
+#include <string>
 #include <type_traits>
 
 /** Marker for conditional expressions that are unlikely to happen. */
@@ -284,95 +286,120 @@ namespace cuda {
   };
 } // namespace cuda
 
-static constexpr const char *COMMENT = "Histogram_GPU";
-static constexpr unsigned RGB_COMPONENT_COLOR = 255;
+/** Image utilities for PPM format. */
+namespace PPM {
+  /** A single pixel in a PPM image. */
+  struct [[gnu::packed]] Pixel final {
+  public:
+    Pixel() = delete;
 
-typedef struct {
-  unsigned char red, green, blue;
-} PPMPixel;
+    /** Represents a single color in a pixel. */
+    using Component = uint8_t;
+    // each color component should be a single byte
+    static_assert(sizeof(Component) == 1);
 
-typedef struct {
-  unsigned x, y;
-  PPMPixel *data;
-} PPMImage;
+    Component red;
+    Component green;
+    Component blue;
 
-static PPMImage *readPPM(const char *filename) {
-  char buff[16];
-  PPMImage *img;
-  FILE *fp;
-  int c, rgb_comp_color;
-  fp = fopen(filename, "rb");
-  if (!fp) {
-    fprintf(stderr, "Unable to open file '%s'\n", filename);
-    exit(1);
-  }
+    /** Number of color components in a pixel. */
+    static constexpr unsigned components() noexcept {
+      return (sizeof(Pixel::red) + sizeof(Pixel::green) + sizeof(Pixel::blue)) /
+             sizeof(Pixel::Component);
+    }
 
-  if (!fgets(buff, sizeof(buff), fp)) {
-    perror(filename);
-    exit(1);
-  }
+    /** Maximum value for a color component. */
+    static constexpr unsigned component_color() noexcept {
+      return std::numeric_limits<Component>::max();
+    }
+  };
+  // each pixel must have its components tightly packed
+  static_assert(sizeof(Pixel) == Pixel::components() * sizeof(Pixel::Component));
 
-  if (buff[0] != 'P' || buff[1] != '6') {
-    fprintf(stderr, "Invalid image format (must be 'P6')\n");
-    exit(1);
-  }
+  /** Image implemented as an array of pixels. */
+  struct Image final {
+  private:
+    /** Size for the allocated array, given the image dimensions. */
+    static unsigned alloc_size(unsigned width, unsigned height) {
+      const auto size = checked_mul(width, height);
+      if unlikely (!size.has_value()) {
+        throw std::bad_alloc();
+      }
+      return *size;
+    }
 
-  img = (PPMImage *)malloc(sizeof(PPMImage));
-  if (!img) {
-    fprintf(stderr, "Unable to allocate memory\n");
-    exit(1);
-  }
+    cuda::array<Pixel> content_;
 
-  c = getc(fp);
-  while (c == '#') {
-    while (getc(fp) != '\n')
-      ;
-    c = getc(fp);
-  }
+    constexpr Pixel *data() noexcept {
+      return content_.data();
+    }
 
-  ungetc(c, fp);
-  if (fscanf(fp, "%d %d", &img->x, &img->y) != 2) {
-    fprintf(stderr, "Invalid image size (error loading '%s')\n", filename);
-    exit(1);
-  }
+    /** Allocate a new image with 'width * height' pixels. */
+    Image(const unsigned width, const unsigned height) : content_(alloc_size(width, height)) {}
 
-  if (fscanf(fp, "%d", &rgb_comp_color) != 1) {
-    fprintf(stderr, "Invalid rgb component (error loading '%s')\n", filename);
-    exit(1);
-  }
+  public:
+    Image(Image &) = delete;
+    Image(const Image &) = delete;
+    constexpr Image(Image &&image) noexcept = default;
 
-  if (rgb_comp_color != RGB_COMPONENT_COLOR) {
-    fprintf(stderr, "'%s' does not have 8-bits components\n", filename);
-    exit(1);
-  }
+    /** The pixels that form the image. */
+    constexpr const cuda::array<Pixel> &content() const noexcept {
+      return content_;
+    }
 
-  while (fgetc(fp) != '\n')
-    ;
-  img->data = (PPMPixel *)malloc(img->x * img->y * sizeof(PPMPixel));
+    /** Number of pixels in the image. */
+    constexpr unsigned size() const noexcept {
+      return content_.size();
+    }
 
-  if (!img) {
-    fprintf(stderr, "Unable to allocate memory\n");
-    exit(1);
-  }
+    /** Size in byte for all the image pixels. */
+    constexpr std::streamsize bytes() const noexcept {
+      return checked_mul<std::streamsize>(size(), sizeof(Pixel)).value();
+    }
 
-  if (fread(img->data, 3 * img->x, img->y, fp) != img->y) {
-    fprintf(stderr, "Error loading image '%s'\n", filename);
-    exit(1);
-  }
+    /** Read a PPM image from file located at 'filename'. */
+    static Image read(const char *filename) {
+      auto file = std::ifstream();
+      file.exceptions(std::ifstream::badbit | std::ifstream::failbit | std::ifstream::eofbit);
+      file.open(filename, std::fstream::in);
 
-  fclose(fp);
-  return img;
-}
+      auto line = std::string();
+      std::getline(file, line);
+      if unlikely (line != "P6") {
+        throw std::invalid_argument("Invalid image format (must be 'P6')");
+      }
 
-static void writePPM(PPMImage *img) {
+      constexpr auto max_size = std::numeric_limits<std::streamsize>::max();
+      while (file.get() == '#') {
+        file.ignore(max_size, '\n');
+      }
+      file.unget();
 
-  fprintf(stdout, "P6\n");
-  fprintf(stdout, "# %s\n", COMMENT);
-  fprintf(stdout, "%d %d\n", img->x, img->y);
-  fprintf(stdout, "%d\n", RGB_COMPONENT_COLOR);
+      unsigned width, height;
+      unsigned component_color;
+      file >> width >> height >> component_color;
+      if unlikely (component_color != Pixel::component_color()) {
+        throw std::invalid_argument("Image does not have 8-bits components");
+      }
+      file.ignore(max_size, '\n');
 
-  fwrite(img->data, 3 * img->x, img->y, stdout);
-  fclose(stdout);
+      auto image = Image(width, height);
+      file.read(reinterpret_cast<char *>(image.data()), image.bytes());
+
+      return image;
+    }
+  };
+} // namespace PPM
+
+static void writePPM(const PPM::Image &img) {
+
+  // fprintf(stdout, "P6\n");
+  // fprintf(stdout, "# %s\n", COMMENT);
+  // fprintf(stdout, "%d %d\n", img->x, img->y);
+  // fprintf(stdout, "%d\n", RGB_COMPONENT_COLOR);
+
+  // fwrite(img->data, 3 * img->x, img->y, stdout);
+  // fclose(stdout);
 }
 
 #define MASK_WIDTH 15
@@ -382,7 +409,7 @@ static __launch_bounds__(1) __global__ void smoothing_kernel(void) {
   printf("Error: smoothing kernel not implemented!\n");
 }
 
-static void smoothing(PPMImage *restrict image, const PPMImage *restrict image_copy) {
+static void smoothing(PPM::Image &image, const PPM::Image &image_copy) {
   cuda::last_error::clear();
   smoothing_kernel<<<1, 1>>>();
   cuda::last_error::check();
@@ -406,8 +433,8 @@ int main(const int argc, const char *const *const argv) {
   fscanf(input, "%255s\n", filename);
 
   // Read input file
-  PPMImage *image = readPPM(filename);
-  PPMImage *image_output = readPPM(filename);
+  const auto image = PPM::Image::read(filename);
+  auto image_output = PPM::Image::read(filename);
 
   // Call Smoothing Kernel
   double t = omp_get_wtime();
@@ -419,10 +446,6 @@ int main(const int argc, const char *const *const argv) {
 
   // Print time to stderr
   std::cerr << std::fixed << t << std::endl;
-
-  // Cleanup
-  free(image);
-  free(image_output);
 
   return EXIT_SUCCESS;
 }
