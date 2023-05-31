@@ -1,19 +1,22 @@
-#include <math.h>
+#include <cuda.h>
 #include <omp.h>
-#include <stdio.h>
-#include <stdlib.h>
-#include <sys/time.h>
 
-#define MASK_WIDTH 15
+#include <cstdio>
+#include <iostream>
+#include <stdexcept>
 
-#define COMMENT "Histogram_GPU"
-#define RGB_COMPONENT_COLOR 255
+/** Marker for conditional expressions that are unlikely to happen. */
+#define unlikely(condition) (__builtin_expect(!!(condition), false))
+/** C-like restrict keyword. */
+#define restrict __restrict__
 
-void check_cuda(cudaError_t error, const char *filename, const int line)
-{
-  if (error != cudaSuccess) {
-    fprintf(stderr, "Error: %s:%d: %s: %s\n", filename, line,
-                 cudaGetErrorName(error), cudaGetErrorString(error));
+static constexpr const char *COMMENT = "Histogram_GPU";
+static constexpr unsigned RGB_COMPONENT_COLOR = 255;
+
+static void check_cuda(cudaError_t error, const char *filename, const int line) {
+  if unlikely (error != cudaSuccess) {
+    fprintf(stderr, "Error: %s:%d: %s: %s\n", filename, line, cudaGetErrorName(error),
+            cudaGetErrorString(error));
     exit(EXIT_FAILURE);
   }
 }
@@ -25,7 +28,7 @@ typedef struct {
 } PPMPixel;
 
 typedef struct {
-  int x, y;
+  unsigned x, y;
   PPMPixel *data;
 } PPMImage;
 
@@ -97,7 +100,7 @@ static PPMImage *readPPM(const char *filename) {
   return img;
 }
 
-void writePPM(PPMImage *img) {
+static void writePPM(PPMImage *img) {
 
   fprintf(stdout, "P6\n");
   fprintf(stdout, "# %s\n", COMMENT);
@@ -108,51 +111,51 @@ void writePPM(PPMImage *img) {
   fclose(stdout);
 }
 
+#define MASK_WIDTH 15
+
 // Implement this!
-__global__ void smoothing_kernel(void) {
+static __launch_bounds__(1) __global__ void smoothing_kernel(void) {
   printf("Error: smoothing kernel not implemented!\n");
 }
 
-void Smoothing(PPMImage *image, PPMImage *image_copy) {
+static void smoothing(PPMImage *restrict image, const PPMImage *restrict image_copy) {
   smoothing_kernel<<<1, 1>>>();
 }
 
-int main(int argc, char *argv[]) {
-  FILE *input;
-  char filename[255];
-  double t;
-
-  if (argc < 2) {
-    fprintf(stderr, "Error: missing path to input file\n");
-    return 1;
+int main(const int argc, const char *const *const argv) {
+  if unlikely (argc != 2) {
+    throw std::invalid_argument("missing path to input file");
+    return EXIT_FAILURE;
   }
 
-  if ((input = fopen(argv[1], "r")) == NULL) {
+  FILE *input = fopen(argv[1], "r");
+  if unlikely (input == NULL) {
     fprintf(stderr, "Error: could not open input file!\n");
-    return 1;
+    return EXIT_FAILURE;
   }
 
   // Read input filename
-  fscanf(input, "%s\n", filename);
+  char filename[256];
+  fscanf(input, "%255s\n", filename);
 
   // Read input file
   PPMImage *image = readPPM(filename);
   PPMImage *image_output = readPPM(filename);
 
   // Call Smoothing Kernel
-  t = omp_get_wtime();
-  Smoothing(image_output, image);
+  double t = omp_get_wtime();
+  smoothing(image_output, image);
   t = omp_get_wtime() - t;
 
   // Write result to stdout
   writePPM(image_output);
 
   // Print time to stderr
-  fprintf(stderr, "%lf\n", t);
+  std::cerr << std::fixed << t << std::endl;
 
   // Cleanup
   free(image);
   free(image_output);
 
-  return 0;
+  return EXIT_SUCCESS;
 }
