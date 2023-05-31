@@ -108,36 +108,184 @@ namespace cuda {
     return static_cast<size_t>(count) * sizeof(T);
   }
 
-  template <typename T>
-  /** Allocate 'count' elements of 'T' in the GPU. */
-  [[gnu::malloc]] static T *malloc(const unsigned count) {
+  /** Memory context, associated with a Function Execution Space Specifier. */
+  enum context : bool {
+    /** __host__ space (usually the CPU and main memory context). */
+    host,
+    /** __device__ space (one or more GPUs contexts). */
+    device
+  };
+
+  template <typename T, context ctx>
+  /** Allocates memory in 'ctx' for exactly 'count' elements of 'T'. */
+  static T *malloc_exact(const unsigned count) {
     T *ptr = nullptr;
-    // the number of elements is rounded so that the size is evenly divisible by BLOCK_SIZE
-    const unsigned closest_count = nearest_block_multiple(count);
-    error::check(cudaMalloc(&ptr, byte_size<T>(closest_count)));
-    // set the unused elements to zero
-    if (count < closest_count) {
-      error::check(cudaMemset(&ptr[count], 0, byte_size<T>(closest_count - count)));
+
+    if (ctx == context::device) {
+      error::check(cudaMalloc(&ptr, byte_size<T>(count)));
+    } else {
+      error::check(cudaMallocHost(&ptr, byte_size<T>(count)));
     }
     return ptr;
   }
 
-  /** Checked 'cudaFree'. */
-  static void free(void *ptr) {
-    error::check(cudaFree(ptr));
+  template <typename T, context ctx>
+  /** Zeroes memory for 'count' elements of 'T' in 'ptr'. */
+  static void memset_zero(T *ptr, const unsigned count) noexcept(ctx == context::host) {
+    if (ctx == context::device) {
+      error::check(cudaMemset(ptr, 0, byte_size<T>(count)));
+    } else {
+      memset(ptr, 0, byte_size<T>(count));
+    }
   }
 
-  template <typename T>
-  /** Copy 'count' elements of 'T' from the Host to the GPU. */
-  static void memcpy_host_to_device(T *restrict dst, const T *restrict src, const unsigned count) {
-    error::check(cudaMemcpy(dst, src, byte_size<T>(count), cudaMemcpyHostToDevice));
+  template <typename T, context ctx>
+  /** Allocate 'count' elements of 'T' in the 'ctx'. */
+  [[gnu::malloc]] static T *malloc(const unsigned count) {
+    // the number of elements is rounded so that the size is evenly divisible by BLOCK_SIZE
+    const unsigned closest_count = nearest_block_multiple(count);
+
+    T *ptr = malloc_exact<T, ctx>(closest_count);
+    // set the unused elements to zero
+    if (count < closest_count) {
+      memset_zero<T, ctx>(&ptr[count], closest_count - count);
+    }
+    return ptr;
   }
 
-  template <typename T>
-  /** Copy 'count' elements of 'T' from the GPU to the Host. */
-  static void memcpy_device_to_host(T *restrict dst, const T *restrict src, const unsigned count) {
-    error::check(cudaMemcpy(dst, src, byte_size<T>(count), cudaMemcpyDeviceToHost));
+  template <typename T, context ctx>
+  /** Allocate 'count' elements of 'T' in the 'ctx' with memory zeroed. */
+  [[gnu::malloc]] static T *calloc(const unsigned count) {
+    // the number of elements is rounded so that the size is evenly divisible by BLOCK_SIZE
+    const unsigned closest_count = nearest_block_multiple(count);
+
+    T *ptr = malloc_exact<T, ctx>(closest_count);
+    memset_zero<T, ctx>(ptr, closest_count);
+    return ptr;
   }
+
+  template <typename T, context ctx>
+  /** Release memory allocated in 'cuda::malloc'. */
+  static void free(T *ptr) {
+    if (ctx == context::device) {
+      error::check(cudaFree(ptr));
+    } else {
+      error::check(cudaFreeHost(ptr));
+    }
+  }
+
+  template <context src_ctx, context dst_ctx>
+  /** Dictates the kind of memcpy used in 'cudaMemcpy', given source and destination contexts. */
+  static constexpr cudaMemcpyKind memcpy_kind() noexcept {
+    switch (src_ctx) {
+    case context::host:
+      switch (dst_ctx) {
+      case context::host:
+        return cudaMemcpyHostToHost;
+      case context::device:
+        return cudaMemcpyHostToDevice;
+      default:
+        return cudaMemcpyDefault;
+      }
+    case context::device:
+      switch (dst_ctx) {
+      case context::host:
+        return cudaMemcpyDeviceToHost;
+      case context::device:
+        return cudaMemcpyDeviceToDevice;
+      default:
+        return cudaMemcpyDefault;
+      }
+    default:
+      return cudaMemcpyDefault;
+    }
+  }
+
+  template <typename T, context dst_ctx, context src_ctx>
+  /** Copies 'count' elements of 'T' from 'src' to 'dst', given their contexts. */
+  static void memcpy(T *dst, const T *src, const unsigned count) {
+    error::check(cudaMemcpy(dst, src, byte_size<T>(count), memcpy_kind<src_ctx, dst_ctx>()));
+  }
+
+  template <typename T, context ctx = cuda::context::host>
+  /** A CUDA Execution-Space aware smart pointer that behaves like an array of 'T'. */
+  class array final {
+  private:
+    const unsigned size_;
+    T *const data_;
+
+    /** Data pointer must be valid in 'ctx'. */
+    explicit array(const unsigned size, T *const data) : size_(size), data_(data) {}
+
+  public:
+    using element_type = T;
+
+    /** Allocates an array of 'size' elements. */
+    explicit array(const unsigned count) : array(count, malloc<T, ctx>(count)) {}
+
+    /** Prevent implicit copies. */
+    array(array<T, ctx> &) = delete;
+    array(const array<T, ctx> &) = delete;
+    /** Moves should still be okay. */
+    constexpr array(array<T, ctx> &&) noexcept = default;
+
+    /** Copies data from another array, possibly in another context. */
+    static array<T, ctx> zeroed(const unsigned count) {
+      return array<T, ctx>(count, calloc<T, ctx>(count));
+    }
+
+    template <context other>
+    /** Copies data from another array, possibly in another context. */
+    static array<T, ctx> copy_from(const array<T, other> &source) {
+      auto dst = array<T, ctx>(source.size());
+      memcpy<T, ctx, other>(dst.data(), source.data(), dst.size());
+      return dst;
+    }
+
+    ~array() {
+      free<T, ctx>(data());
+    }
+
+    /** Pointer to the underlying array. */
+    constexpr T *data() noexcept {
+      return data_;
+    }
+    constexpr const T *data() const noexcept {
+      return data_;
+    }
+
+    /** Array size. */
+    constexpr unsigned size() const noexcept {
+      return size_;
+    }
+
+    inline T *begin() noexcept {
+      static_assert(ctx == context::host);
+      return data();
+    }
+    inline const T *begin() const noexcept {
+      static_assert(ctx == context::host);
+      return data();
+    }
+
+    inline T *end() noexcept {
+      static_assert(ctx == context::host);
+      return data() + size();
+    }
+    inline const T *end() const noexcept {
+      static_assert(ctx == context::host);
+      return data() + size();
+    }
+
+    inline T &operator[](const unsigned index) noexcept {
+      static_assert(ctx == context::host);
+      return data()[index];
+    }
+    inline const T &operator[](const unsigned index) const noexcept {
+      static_assert(ctx == context::host);
+      return data()[index];
+    }
+  };
 }; // namespace cuda
 
 /** Parse matrix dimensions from test case. */
@@ -170,9 +318,8 @@ int main(const int argc, const char *const *const argv) {
   const auto [rows, cols] = read_input(argv[1]);
 
   // Allocate memory on the host
-  unsigned *A = new unsigned[rows * cols];
-  unsigned *B = new unsigned[rows * cols];
-  unsigned *C = new unsigned[rows * cols];
+  auto A = cuda::array<unsigned>(rows * cols);
+  auto B = cuda::array<unsigned>(rows * cols);
 
   // Initialize memory
   for (unsigned i = 0; i < rows; i++) {
@@ -182,12 +329,9 @@ int main(const int argc, const char *const *const argv) {
   }
 
   // Copy data to device
-  unsigned *cA = cuda::malloc<unsigned>(rows * cols);
-  unsigned *cB = cuda::malloc<unsigned>(rows * cols);
-  unsigned *cC = cuda::malloc<unsigned>(rows * cols);
-
-  cuda::memcpy_host_to_device(cA, A, rows * cols);
-  cuda::memcpy_host_to_device(cB, B, rows * cols);
+  const auto cA = cuda::array<unsigned, cuda::device>::copy_from(A);
+  const auto cB = cuda::array<unsigned, cuda::device>::copy_from(B);
+  auto cC = cuda::array<unsigned, cuda::device>(rows * cols);
 
   // Compute matrix sum on device
   // Leave only the kernel and synchronize inside the timing region!
@@ -195,18 +339,14 @@ int main(const int argc, const char *const *const argv) {
   // launch kernel checking for errors
   cuda::last_error::clear();
   const unsigned total = rows * cols;
-  matrix_sum<<<cuda::blocks(total), cuda::BLOCK_SIZE>>>(cA, cB, cC);
+  matrix_sum<<<cuda::blocks(total), cuda::BLOCK_SIZE>>>(cA.data(), cB.data(), cC.data());
   cuda::last_error::check();
 
   cuda::device_synchronize();
   const double time = omp_get_wtime() - start;
 
   // Copy data back to host
-  cuda::memcpy_device_to_host(C, cC, rows * cols);
-
-  cuda::free(cA);
-  cuda::free(cB);
-  cuda::free(cC);
+  auto C = cuda::array<unsigned>::copy_from(cC);
 
   long long unsigned sum = 0;
 
@@ -219,10 +359,6 @@ int main(const int argc, const char *const *const argv) {
 
   std::cout << sum << std::endl;
   std::cerr << std::fixed << time << std::endl;
-
-  delete[] A;
-  delete[] B;
-  delete[] C;
 
   return EXIT_SUCCESS;
 }
