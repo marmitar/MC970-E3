@@ -13,8 +13,8 @@ Tasks & Rules
 You should do the following tasks:
 
 - [X] Understand the serial code in `src/histogram-serial.c`
-- [ ] Parallelize the code using CUDA in the file `src/histogram-parallel.cu`
-- [ ] Run both versions and compare them. Did you get any speedup?
+- [X] Parallelize the code using CUDA in the file `src/histogram-parallel.cu`
+- [X] Run both versions and compare them. Did you get any speedup? (up to 58x)
 
 You must **not** change the serial implementation, only the parallel one.
 

@@ -1,6 +1,7 @@
 #include <cuda.h>
 
 #include <algorithm>
+#include <array>
 #include <chrono>
 #include <fstream>
 #include <iomanip>
@@ -444,47 +445,115 @@ namespace PPM {
   };
 }; // namespace PPM
 
-static __launch_bounds__(cuda::BLOCK_SIZE) __global__ void histogram_kernel() {
-  printf("Warning: histogram_kernel not implemented!\n");
+/** Histogram utilities. */
+namespace histogram {
+  /** Calculates 'base ** exponent'. */
+  static constexpr unsigned pow(unsigned base, unsigned exponent) {
+    unsigned result = 1;
+    while (exponent > 0) {
+      if (exponent % 2 != 0) {
+        result = checked_mul(result, base).value();
+      }
+      base = checked_mul(base, base).value();
+      exponent /= 2;
+    }
+    return result;
+  }
+
+  /**
+   * Represents how a color component (in range [0,255]) is represented in the histogram
+   * (range [0, WIDTH-1]).
+   */
+  static constexpr unsigned WIDTH = 4;
+  /** The size of a histogram array ('WIDTH ** number of components') */
+  static constexpr unsigned SIZE = pow(WIDTH, PPM::Pixel::components());
+
+  /**
+   * Maps a single component color to its part in the histogram index.
+   *
+   * This is is just a linear transformation from [0,256) to [0,WIDTH).
+   */
+  static constexpr __host__ __device__ unsigned
+  map_component(const PPM::Pixel::Component value) noexcept {
+    // multiple checks to guarantee no overflow happens in the transformation
+    constexpr auto min = std::numeric_limits<PPM::Pixel::Component>::min();
+    constexpr auto max = std::numeric_limits<PPM::Pixel::Component>::max();
+    static_assert(std::numeric_limits<unsigned>::min() <= min);
+    static_assert(std::numeric_limits<unsigned>::max() > max);
+    static_assert(checked_mul(unsigned(max) - unsigned(min), WIDTH).has_value());
+    // then apply the linear transformation
+    return ((unsigned(value) - unsigned(min)) * WIDTH) / (unsigned(max) + 1 - unsigned(min));
+  }
+
+  /**
+   * Calculate the index in the histogram for a given PPM pixel.
+   *
+   * This index can be though as 3 digit number in base WIDTH, such that each digit is a mapping
+   * (see 'map_component') of one of its color components.
+   */
+  static constexpr __host__ __device__ unsigned index(const PPM::Pixel pixel) noexcept {
+    constexpr auto max = map_component(std::numeric_limits<PPM::Pixel::Component>::max());
+    static_assert((max * WIDTH + max) * WIDTH + max < SIZE);
+    // translate the pixel to a number (r,g,b) in base WIDTH.
+    const auto [r, g, b] = pixel;
+    return (map_component(r) * WIDTH + map_component(g)) * WIDTH + map_component(b);
+  }
+}; // namespace histogram
+
+/** Update absolute histogram for pixel at (blockIdx, threadIdx). */
+static __launch_bounds__(cuda::BLOCK_SIZE) __global__
+    void histogram_kernel(const PPM::Pixel *const image, unsigned *const hist_count) {
+
+  const PPM::Pixel px = image[blockDim.x * blockIdx.x + threadIdx.x];
+  const unsigned idx = histogram::index(px);
+  atomicAdd(&hist_count[idx], 1);
 }
 
 using seconds = std::chrono::duration<double>;
 
-static seconds histogram(PPM::Image &image, std::array<double, histogram::SIZE> &h) {
+/** Calculates the normalized histogram of 'image' and stores the result in 'hist'. */
+static seconds calculate_histogram(const PPM::Image &image,
+                                   std::array<double, histogram::SIZE> &hist) {
   // Create Events
   auto start = cuda::event::create();
   auto stop = cuda::event::create();
+  // Copy data to the device
+  auto dev_image = cuda::array<PPM::Pixel, cuda::device>::copy_from(image.content());
+  auto count = cuda::array<unsigned, cuda::device>::zeroed(histogram::SIZE);
 
-  // Launch kernel and compute kernel runtime.
-  // Warning: make sure only the kernel is being profiled, memcpies should be
-  // out of this region.
   start.record();
-  histogram_kernel<<<1, 1>>>();
+  // launch kernel and compute kernel runtime.
+  cuda::last_error::clear();
+  histogram_kernel<<<cuda::blocks(image.size()), cuda::BLOCK_SIZE>>>(dev_image.data(),
+                                                                     count.data());
+  cuda::last_error::check(); // check for kernel lauch errors
+  cuda::device_synchronize();
+  // calculate normalized histogram from absolute counters in CPU
+  const auto host_count = cuda::array<unsigned, cuda::host>::copy_from(count);
+  const double total = static_cast<double>(image.size());
+  for (unsigned i = 0; i < histogram::SIZE; i++) {
+    hist[i] = static_cast<double>(host_count[i]) / total;
+  }
+  // stop timer after normalized histogram is calculated
   stop.record();
   stop.synchronize();
-
   return stop - start;
 }
 
 int main(const int argc, const char *const *const argv) {
   if unlikely (argc != 2) {
-    throw std::invalid_argument("Error: missing path to input file\n");
+    throw std::invalid_argument("missing path to input file");
     return EXIT_FAILURE;
   }
 
   const auto image = PPM::Image::read(argv[1]);
-  auto h = cuda::array<float, cuda::host>(64);
-
-  // Initialize histogram
-  for (float &hi : h) {
-    hi = 0.0;
-  }
+  auto hist = std::array<double, histogram::SIZE>();
 
   // Compute histogram
-  const auto elapsed = histogram(image, h);
+  const auto elapsed = calculate_histogram(image, hist);
 
-  for (const float hi : h) {
-    std::cout << std::fixed << std::setprecision(3) << hi << ' ';
+  for (const double h : hist) {
+    std::cout << std::fixed << std::setprecision(3) << h << ' ';
   }
   std::cout << std::endl;
 
