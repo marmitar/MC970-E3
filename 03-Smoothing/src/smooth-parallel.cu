@@ -1,27 +1,291 @@
 #include <cuda.h>
 #include <omp.h>
 
+#include <algorithm>
 #include <cstdio>
+#include <iomanip>
 #include <iostream>
+#include <optional>
 #include <stdexcept>
+#include <type_traits>
 
 /** Marker for conditional expressions that are unlikely to happen. */
 #define unlikely(condition) (__builtin_expect(!!(condition), false))
 /** C-like restrict keyword. */
 #define restrict __restrict__
 
-static constexpr const char *COMMENT = "Histogram_GPU";
-static constexpr unsigned RGB_COMPONENT_COLOR = 255;
-
-static void check_cuda(cudaError_t error, const char *filename, const int line) {
-  if unlikely (error != cudaSuccess) {
-    fprintf(stderr, "Error: %s:%d: %s: %s\n", filename, line, cudaGetErrorName(error),
-            cudaGetErrorString(error));
-    exit(EXIT_FAILURE);
+template <typename Num, class = std::enable_if_t<std::is_integral_v<Num>>>
+/** Does 'a * b' if possible, or returns 'nullopt' if an overflow or underflow would occur. */
+static constexpr inline std::optional<Num> checked_mul(const Num a, const Num b) noexcept {
+  if (b == 0) {
+    return a * b;
   }
+
+  constexpr Num MINUMUM = std::numeric_limits<Num>::min();
+  constexpr Num MAXIMUM = std::numeric_limits<Num>::max();
+  const Num lo = std::min(MINUMUM / b, MAXIMUM / b);
+  const Num hi = std::max(MINUMUM / b, MAXIMUM / b);
+
+  if unlikely (a < lo || a > hi) {
+    return std::nullopt;
+  }
+  return a * b;
 }
 
-#define CUDACHECK(cmd) check_cuda(cmd, __FILE__, __LINE__)
+/** CUDA helper functions. */
+namespace cuda {
+  /** Number of threads per block. */
+  static constexpr unsigned BLOCK_SIZE = THREADS_PER_BLOCK;
+  static_assert(BLOCK_SIZE > 0);
+  static_assert(BLOCK_SIZE % 32 == 0);
+
+  /** Reports a cudaError_t. */
+  class error final : public std::runtime_error {
+  private:
+    explicit error(cudaError_t errnum) : std::runtime_error(cudaGetErrorString(errnum)) {}
+
+    /** Always fails with 'cuda::error(errnum)'.
+     *
+     * Reduces code bloat from inlined 'cuda::error::check(result)' calls.
+     */
+    [[gnu::cold, noreturn]] static void fail(const cudaError_t errnum) {
+      throw error(errnum);
+    }
+
+  public:
+    /** Throws an error if 'result' is not 'cudaSuccess'.  */
+    [[gnu::hot]] static inline void check(const cudaError_t result) {
+      if unlikely (result != cudaSuccess) {
+        fail(result);
+      }
+    }
+  };
+
+  namespace last_error {
+    /** Removes that last error value and set it to 'cudaSuccess'. */
+    static void clear() noexcept {
+      cudaGetLastError();
+    }
+
+    /** Throws an error if 'cudaGetLastError' returns something other than 'cudaSuccess'. */
+    static void check() {
+      error::check(cudaGetLastError());
+    }
+  }; // namespace last_error
+
+  /** Checked 'cudaDeviceSynchronize'. */
+  static void device_synchronize() {
+    error::check(cudaDeviceSynchronize());
+  }
+
+  /** Calculate the number of blocks for 'count' elements. */
+  static constexpr inline unsigned blocks(const unsigned count) noexcept {
+    if unlikely (count == 0) {
+      return 0;
+    } else {
+      // ceil(count / BLOCK_SIZE)
+      return (count - 1) / BLOCK_SIZE + 1;
+    }
+  }
+
+  /** Rounds 'count' to the nearest multiple of 'BLOCK_SIZE'. */
+  static constexpr inline unsigned nearest_block_multiple(const unsigned count) {
+    const auto multiple = checked_mul(BLOCK_SIZE, blocks(count));
+    if unlikely (!multiple.has_value()) {
+      throw std::length_error("array is too big");
+    }
+    return *multiple;
+  }
+
+  template <typename T>
+  /** Size in bytes for an array of 'count' elements of 'T'. */
+  static constexpr inline size_t byte_size(const unsigned count) noexcept {
+    constexpr size_t max_count = std::numeric_limits<unsigned>::max();
+    // this guarantees that 'count * sizeof(T)' cannot overflow
+    static_assert(checked_mul<size_t>(max_count, sizeof(T)).has_value());
+
+    return static_cast<size_t>(count) * sizeof(T);
+  }
+
+  /** Memory context, associated with a Function Execution Space Specifier. */
+  enum context : bool {
+    /** __host__ space (usually the CPU and main memory context). */
+    host,
+    /** __device__ space (one or more GPUs contexts). */
+    device
+  };
+
+  template <typename T, context ctx>
+  /** Allocates memory in 'ctx' for exactly 'count' elements of 'T'. */
+  static T *malloc_exact(const unsigned count) {
+    T *ptr = nullptr;
+
+    if (ctx == context::device) {
+      error::check(cudaMalloc(&ptr, byte_size<T>(count)));
+    } else {
+      error::check(cudaMallocHost(&ptr, byte_size<T>(count)));
+    }
+    return ptr;
+  }
+
+  template <typename T, context ctx>
+  /** Zeroes memory for 'count' elements of 'T' in 'ptr'. */
+  static void memset_zero(T *ptr, const unsigned count) noexcept(ctx == context::host) {
+    if (ctx == context::device) {
+      error::check(cudaMemset(ptr, 0, byte_size<T>(count)));
+    } else {
+      memset(ptr, 0, byte_size<T>(count));
+    }
+  }
+
+  template <typename T, context ctx>
+  /** Allocate 'count' elements of 'T' in the 'ctx'. */
+  [[gnu::malloc]] static T *malloc(const unsigned count) {
+    // the number of elements is rounded so that the size is evenly divisible by BLOCK_SIZE
+    const unsigned closest_count = nearest_block_multiple(count);
+
+    T *ptr = malloc_exact<T, ctx>(closest_count);
+    // set the unused elements to zero
+    if (count < closest_count) {
+      memset_zero<T, ctx>(&ptr[count], closest_count - count);
+    }
+    return ptr;
+  }
+
+  template <typename T, context ctx>
+  /** Allocate 'count' elements of 'T' in the 'ctx'. */
+  [[gnu::malloc]] static T *calloc(const unsigned count) {
+    // the number of elements is rounded so that the size is evenly divisible by BLOCK_SIZE
+    const unsigned closest_count = nearest_block_multiple(count);
+
+    T *ptr = malloc_exact<T, ctx>(closest_count);
+    memset_zero<T, ctx>(ptr, closest_count);
+    return ptr;
+  }
+
+  template <typename T, context ctx>
+  /** Release memory allocated in 'cuda::malloc'. */
+  static void free(T *ptr) {
+    if (ctx == context::device) {
+      error::check(cudaFree(ptr));
+    } else {
+      error::check(cudaFreeHost(ptr));
+    }
+  }
+
+  template <context src_ctx, context dst_ctx>
+  /** Dictates the kind of memcpy used in 'cudaMemcpy', given source and destination contexts. */
+  static constexpr cudaMemcpyKind memcpy_kind() noexcept {
+    switch (src_ctx) {
+    case context::host:
+      switch (dst_ctx) {
+      case context::host:
+        return cudaMemcpyHostToHost;
+      case context::device:
+        return cudaMemcpyHostToDevice;
+      default:
+        return cudaMemcpyDefault;
+      }
+    case context::device:
+      switch (dst_ctx) {
+      case context::host:
+        return cudaMemcpyDeviceToHost;
+      case context::device:
+        return cudaMemcpyDeviceToDevice;
+      default:
+        return cudaMemcpyDefault;
+      }
+    default:
+      return cudaMemcpyDefault;
+    }
+  }
+
+  template <typename T, context dst_ctx, context src_ctx>
+  /** Copies 'count' elements of 'T' from 'src' to 'dst', given their contexts. */
+  static void memcpy(T *dst, const T *src, const unsigned count) {
+    error::check(cudaMemcpy(dst, src, byte_size<T>(count), memcpy_kind<src_ctx, dst_ctx>()));
+  }
+
+  template <typename T, context ctx = cuda::context::host>
+  /** A CUDA Execution-Space aware smart pointer that behaves like an array of 'T'. */
+  class array final {
+  private:
+    const unsigned size_;
+    T *const data_;
+
+    explicit array(const unsigned size, T *const data) : size_(size), data_(data) {}
+
+  public:
+    /** Allocates an array of 'size' elements. */
+    explicit array(const unsigned count) : array(count, malloc<T, ctx>(count)) {}
+
+    /** Prevent implicit copies. */
+    array(array<T, ctx> &) = delete;
+    array(const array<T, ctx> &) = delete;
+    /** Moves should still be okay. */
+    constexpr array(array<T, ctx> &&) noexcept = default;
+
+    /** Copies data from another array, possibly in another context. */
+    static array<T, ctx> zeroed(const unsigned count) {
+      return array<T, ctx>(count, calloc<T, ctx>(count));
+    }
+
+    template <context other>
+    /** Copies data from another array, possibly in another context. */
+    static array<T, ctx> copy_from(const array<T, other> &source) {
+      auto dst = array<T, ctx>(source.size());
+      memcpy<T, ctx, other>(dst.data(), source.data(), dst.size());
+      return dst;
+    }
+
+    ~array() {
+      free<T, ctx>(data());
+    }
+
+    /** Pointer to the underlying array. */
+    constexpr T *data() noexcept {
+      return data_;
+    }
+    constexpr const T *data() const noexcept {
+      return data_;
+    }
+
+    /** Array size. */
+    constexpr unsigned size() const noexcept {
+      return size_;
+    }
+
+    inline T *begin() noexcept {
+      static_assert(ctx == context::host);
+      return data();
+    }
+    inline const T *begin() const noexcept {
+      static_assert(ctx == context::host);
+      return data();
+    }
+
+    inline T *end() noexcept {
+      static_assert(ctx == context::host);
+      return data() + size();
+    }
+    inline const T *end() const noexcept {
+      static_assert(ctx == context::host);
+      return data() + size();
+    }
+
+    inline T &operator[](const unsigned index) noexcept {
+      static_assert(ctx == context::host);
+      return data()[index];
+    }
+    inline const T &operator[](const unsigned index) const noexcept {
+      static_assert(ctx == context::host);
+      return data()[index];
+    }
+  };
+} // namespace cuda
+
+static constexpr const char *COMMENT = "Histogram_GPU";
+static constexpr unsigned RGB_COMPONENT_COLOR = 255;
 
 typedef struct {
   unsigned char red, green, blue;
@@ -119,7 +383,10 @@ static __launch_bounds__(1) __global__ void smoothing_kernel(void) {
 }
 
 static void smoothing(PPMImage *restrict image, const PPMImage *restrict image_copy) {
+  cuda::last_error::clear();
   smoothing_kernel<<<1, 1>>>();
+  cuda::last_error::check();
+  cuda::device_synchronize();
 }
 
 int main(const int argc, const char *const *const argv) {
