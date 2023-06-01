@@ -2,7 +2,6 @@
 #include <omp.h>
 
 #include <algorithm>
-#include <cstdio>
 #include <fstream>
 #include <iomanip>
 #include <iostream>
@@ -382,7 +381,7 @@ namespace PPM {
     }
 
     /** Read a PPM image from file located at 'filename'. */
-    static Image read(const char *filename) {
+    static Image read(const std::string &filename) {
       auto file = std::ifstream();
       file.exceptions(std::ifstream::badbit | std::ifstream::failbit | std::ifstream::eofbit);
       file.open(filename, std::fstream::in);
@@ -440,36 +439,55 @@ static void smoothing(PPM::Image &image, const PPM::Image &image_copy) {
   cuda::device_synchronize();
 }
 
+/** Trims leading and trailing whitespaces. */
+static std::string trim(const std::string &str) noexcept {
+  constexpr auto whitespace = " \f\n\r\t\v";
+
+  const auto start = str.find_first_not_of(whitespace);
+  if (start == std::string::npos) {
+    return ""; // no content
+  }
+
+  const auto end = str.find_last_not_of(whitespace);
+  return str.substr(start, (end + 1 - start));
+}
+
+/** Open filename, reads the first line and returns the line trimmed of whitespaces. */
+static std::string read_first_line(const char *const filename) {
+  auto file = std::ifstream();
+  file.exceptions(std::ifstream::badbit | std::ifstream::failbit | std::ifstream::eofbit);
+  file.open(filename, std::fstream::in);
+
+  auto line = std::string();
+  std::getline(file, line);
+
+  return trim(line);
+}
+
 int main(const int argc, const char *const *const argv) {
   if unlikely (argc != 2) {
     throw std::invalid_argument("missing path to input file");
     return EXIT_FAILURE;
   }
 
-  FILE *input = fopen(argv[1], "r");
-  if unlikely (input == NULL) {
-    fprintf(stderr, "Error: could not open input file!\n");
-    return EXIT_FAILURE;
-  }
-
   // Read input filename
-  char filename[256];
-  fscanf(input, "%255s\n", filename);
+  const auto filename = read_first_line(argv[1]);
 
   // Read input file
   const auto image = PPM::Image::read(filename);
   auto image_output = image.clone();
 
   // Call Smoothing Kernel
-  double t = omp_get_wtime();
+  const double start = omp_get_wtime();
   smoothing(image_output, image);
-  t = omp_get_wtime() - t;
+  const double end = omp_get_wtime();
+  const double elapsed = end - start;
 
   // Write result to stdout
   std::cout << image_output << std::endl;
 
   // Print time to stderr
-  std::cerr << std::fixed << t << std::endl;
+  std::cerr << std::fixed << elapsed << std::endl;
 
   return EXIT_SUCCESS;
 }
