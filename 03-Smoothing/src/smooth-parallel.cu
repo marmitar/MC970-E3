@@ -373,6 +373,14 @@ namespace PPM {
       return checked_mul<std::streamsize>(size(), sizeof(Pixel)).value();
     }
 
+    /** Copy pixels from CUDA array. */
+    template <cuda::context ctx> void copy_from(const cuda::array<Pixel, ctx> &pixels) {
+      if unlikely (pixels.size() != size()) {
+        throw std::invalid_argument("Array of pixels does not match the image shape");
+      }
+      cuda::memcpy<Pixel, cuda::host, ctx>(data(), pixels.data(), pixels.size());
+    }
+
     /** An explicit copy constructor. */
     Image clone() const {
       auto cloned = Image(width(), height());
@@ -427,16 +435,73 @@ namespace PPM {
 
 #define MASK_WIDTH 15
 
-// Implement this!
-static __launch_bounds__(1) __global__ void smoothing_kernel(void) {
-  printf("Error: smoothing kernel not implemented!\n");
+namespace saturating {
+  template <typename Num, class = std::enable_if_t<std::is_integral_v<Num>>>
+  /** Safely implements 'MIN(a + b, max)'. */
+  constexpr Num add(Num a, Num b, Num max = std::numeric_limits<Num>::max()) noexcept {
+    if unlikely (a > max - b) {
+      return max;
+    } else {
+      return a + b;
+    }
+  }
+
+  template <typename Num, class = std::enable_if_t<std::is_integral_v<Num>>>
+  /** Safely implements 'MAX(a - b, min)'. */
+  constexpr Num sub(Num a, Num b, Num min = std::numeric_limits<Num>::min()) noexcept {
+    if unlikely (a < min + b) {
+      return min;
+    } else {
+      return a - b;
+    }
+  }
+} // namespace saturating
+
+static __launch_bounds__(cuda::BLOCK_SIZE) __global__
+    void smoothing_kernel(PPM::Pixel *restrict out, const PPM::Pixel *restrict img,
+                          const unsigned width, const unsigned height) {
+
+  const unsigned idx = blockDim.x * blockIdx.x + threadIdx.x;
+  // pixel position (i, j)
+  const unsigned i = idx % width;
+  const unsigned j = idx / width;
+
+  constexpr unsigned RADIUS = ((MASK_WIDTH - 1) / 2);
+  // calculate the total RGB in neighborhood
+  unsigned red = 0, green = 0, blue = 0;
+  for (unsigned x = saturating::sub(i, RADIUS); x <= saturating::add(i, RADIUS, width); x++) {
+    for (auto y = saturating::sub(j, RADIUS); y <= saturating::add(j, RADIUS, height); y++) {
+      red += img[y * width + x].red;
+      green += img[y * width + x].green;
+      blue += img[y * width + x].blue;
+    }
+  }
+
+  // save average to output image
+  constexpr unsigned TOTAL = MASK_WIDTH * MASK_WIDTH;
+  out[idx].red = red / TOTAL;
+  out[idx].green = green / TOTAL;
+  out[idx].blue = blue / TOTAL;
 }
 
-static void smoothing(PPM::Image &image, const PPM::Image &image_copy) {
+static double smoothing(PPM::Image &result, const PPM::Image &image) {
+  // copy image to device memory
+  const auto input = cuda::array<PPM::Pixel, cuda::device>::copy_from(image.content());
+  auto output = cuda::array<PPM::Pixel, cuda::device>::zeroed(image.size());
+
+  const double start = omp_get_wtime();
+  // launch kernel and check for errors
   cuda::last_error::clear();
-  smoothing_kernel<<<1, 1>>>();
+  smoothing_kernel<<<cuda::blocks(image.size()), cuda::BLOCK_SIZE>>>(output.data(), input.data(),
+                                                                     image.width(), image.height());
   cuda::last_error::check();
   cuda::device_synchronize();
+  // only measure the kernel code
+  const double end = omp_get_wtime();
+
+  // move result to host memory
+  result.copy_from(output);
+  return end - start;
 }
 
 /** Trims leading and trailing whitespaces. */
@@ -475,16 +540,13 @@ int main(const int argc, const char *const *const argv) {
 
   // Read input file
   const auto image = PPM::Image::read(filename);
-  auto image_output = image.clone();
+  auto output_image = image.clone();
 
   // Call Smoothing Kernel
-  const double start = omp_get_wtime();
-  smoothing(image_output, image);
-  const double end = omp_get_wtime();
-  const double elapsed = end - start;
+  const double elapsed = smoothing(output_image, image);
 
   // Write result to stdout
-  std::cout << image_output << std::endl;
+  std::cout << output_image << std::endl;
 
   // Print time to stderr
   std::cerr << std::fixed << elapsed << std::endl;

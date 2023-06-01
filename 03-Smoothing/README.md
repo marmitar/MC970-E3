@@ -59,8 +59,8 @@ Tasks & Rules
 You should do the following tasks:
 
 - [X] Understand the serial code in `src/smooth-serial.c`
-- [ ] Parallelize the code using CUDA in the file `src/smooth-parallel.c`
-- [ ] Run both versions and compare them. Did you get any speedup?
+- [X] Parallelize the code using CUDA in the file `src/smooth-parallel.c`
+- [X] Run both versions and compare them. Did you get any speedup? (up to 50x)
 - [ ] Experiment with different `MASK_WIDTH` sizes. What is the visual effect on
   the resulting image?
 - [ ] Experiment with different number of blocks and threads. What is the
