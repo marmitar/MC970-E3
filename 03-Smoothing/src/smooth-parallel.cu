@@ -433,8 +433,6 @@ namespace PPM {
   };
 } // namespace PPM
 
-#define MASK_WIDTH 15
-
 namespace saturating {
   template <typename Num, class = std::enable_if_t<std::is_integral_v<Num>>>
   /** Safely implements 'MIN(a + b, max)'. */
@@ -457,6 +455,26 @@ namespace saturating {
   }
 } // namespace saturating
 
+namespace mask {
+  static constexpr unsigned width() noexcept {
+#ifdef MASK_WIDTH
+    return MASK_WIDTH;
+#else
+    return 15;
+#endif
+  }
+
+  static constexpr unsigned radius() noexcept {
+    static_assert(width() % 2 == 1);
+    return (width() - 1) / 2;
+  }
+
+  static constexpr unsigned size() noexcept {
+    static_assert(width() > 0);
+    return width() * width();
+  }
+} // namespace mask
+
 static __launch_bounds__(cuda::BLOCK_SIZE) __global__
     void smoothing_kernel(PPM::Pixel *restrict out, const PPM::Pixel *restrict img,
                           const unsigned width, const unsigned height) {
@@ -466,7 +484,7 @@ static __launch_bounds__(cuda::BLOCK_SIZE) __global__
   const unsigned i = idx % width;
   const unsigned j = idx / width;
 
-  constexpr unsigned RADIUS = ((MASK_WIDTH - 1) / 2);
+  constexpr unsigned RADIUS = mask::radius();
   // calculate the total RGB in neighborhood
   unsigned red = 0, green = 0, blue = 0;
   for (unsigned x = saturating::sub(i, RADIUS); x <= saturating::add(i, RADIUS, width); x++) {
@@ -478,10 +496,9 @@ static __launch_bounds__(cuda::BLOCK_SIZE) __global__
   }
 
   // save average to output image
-  constexpr unsigned TOTAL = MASK_WIDTH * MASK_WIDTH;
-  out[idx].red = red / TOTAL;
-  out[idx].green = green / TOTAL;
-  out[idx].blue = blue / TOTAL;
+  out[idx].red = red / mask::size();
+  out[idx].green = green / mask::size();
+  out[idx].blue = blue / mask::size();
 }
 
 static double smoothing(PPM::Image &result, const PPM::Image &image) {

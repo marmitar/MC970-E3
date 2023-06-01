@@ -51,6 +51,10 @@ endif()
 set(THREADS_PER_BLOCK "256" CACHE STRING "Number of threads for each CUDA block")
 add_compile_definitions(THREADS_PER_BLOCK=${THREADS_PER_BLOCK})
 
+# Set mask width for image smoothing
+set(MASK_WIDTH "15" CACHE STRING "Width of the mask used for image smoothing")
+add_compile_definitions(MASK_WIDTH=${MASK_WIDTH})
+
 find_package(CUDA REQUIRED)
 find_package(OpenMP REQUIRED)
 
