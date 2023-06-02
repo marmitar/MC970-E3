@@ -17,21 +17,24 @@ cd $PBS_O_WORKDIR
 rm -rf build
 cmake -B build -D CMAKE_BUILD_TYPE=Release -D CMAKE_CUDA_ARCHITECTURES=80 .
 
+# Number of times to repeat each test
+REPEATS=1
+
 ###
 ### @swineone's script
 ###
 make -C build
-for a in 1 2 3 4 5
+for rep in $(seq "$REPEATS")
 do
+    for a in 1 2 3 4 5
+    do
         build/parallel tests/$a.in \
-              1>build/parallel.$a.out \
-              2>build/parallel.$a.time
-
+            1>build/parallel.$a.out \
+            2>build/parallel.$a.time
 
         build/serial tests/$a.in \
-              1>build/serial.$a.out \
-              2>build/serial.$a.time
-
+            1>build/serial.$a.out \
+            2>build/serial.$a.time
 
         cmp tests/$a.out.ppm build/parallel.$a.out >&2
         diff_status=$?
@@ -44,10 +47,11 @@ do
         echo "         Speedup: ${speedup}x"
 
         if [[ ! -f runtime.csv ]]; then
-                echo "# Input,Serial time,Parallel time,Speedup" > runtime.csv
+            echo "# Input,Serial time,Parallel time,Speedup" > runtime.csv
         fi
 
         if [ $diff_status -eq 0 ]; then
-                echo "$a,$ser,$par,$speedup" >> runtime.csv
+            echo "$a,$ser,$par,$speedup" >> runtime.csv
         fi
+    done
 done
