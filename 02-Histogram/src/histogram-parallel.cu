@@ -468,6 +468,18 @@ namespace histogram {
   /** The size of a histogram array ('WIDTH ** number of components') */
   static constexpr unsigned SIZE = pow(WIDTH, PPM::Pixel::components());
 
+  template <typename T, cuda::context ctx>
+  /** Read a fixed-size histogram array from another context. */
+  static std::array<T, SIZE> read_from(const cuda::array<T, ctx> &array) {
+    auto output = std::array<T, SIZE>();
+    if unlikely(array.size() != output.size()) {
+      throw std::invalid_argument("array does not match histogram size");
+    }
+
+    cuda::memcpy<T, cuda::host, ctx>(output.data(), array.data(), output.size());
+    return output;
+  }
+
   /**
    * Maps a single component color to its part in the histogram index.
    *
@@ -529,7 +541,7 @@ static seconds calculate_histogram(const PPM::Image &image,
   cuda::last_error::check(); // check for kernel lauch errors
   cuda::device_synchronize();
   // calculate normalized histogram from absolute counters in CPU
-  const auto host_count = cuda::array<unsigned, cuda::host>::copy_from(count);
+  const auto host_count = histogram::read_from(count);
   const double total = static_cast<double>(image.size());
   for (unsigned i = 0; i < histogram::SIZE; i++) {
     hist[i] = static_cast<double>(host_count[i]) / total;

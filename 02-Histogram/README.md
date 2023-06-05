@@ -14,7 +14,7 @@ You should do the following tasks:
 
 - [X] Understand the serial code in `src/histogram-serial.c`
 - [X] Parallelize the code using CUDA in the file `src/histogram-parallel.cu`
-- [X] Run both versions and compare them. Did you get any speedup? (up to 58x)
+- [X] Run both versions and compare them. Did you get any speedup? (up to 75x)
 
 You must **not** change the serial implementation, only the parallel one.
 
