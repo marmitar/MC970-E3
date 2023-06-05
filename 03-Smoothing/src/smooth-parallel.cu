@@ -422,7 +422,7 @@ namespace PPM {
 
     /** Write image to stream. */
     [[gnu::noinline]] friend std::ostream &operator<<(std::ostream &os, const Image &image) {
-      constexpr auto COMMENT = "Smoothing GPU";
+      constexpr auto COMMENT = "Histogram_GPU";
 
       auto &outs = os << "P6" << '\n'
                       << "# " << COMMENT << '\n'
@@ -563,7 +563,7 @@ int main(const int argc, const char *const *const argv) {
   const double elapsed = smoothing(output_image, image);
 
   // Write result to stdout
-  std::cout << output_image << std::endl;
+  std::cout << output_image << std::flush;
 
   // Print time to stderr
   std::cerr << std::fixed << elapsed << std::endl;
