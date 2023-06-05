@@ -1,0 +1,750 @@
+  Serial runtime: 0.081743s
+Parallel runtime: 0.001311s
+         Speedup: 62.3516x
+  Serial runtime: 0.123071s
+Parallel runtime: 0.003458s
+         Speedup: 35.5902x
+  Serial runtime: 0.422032s
+Parallel runtime: 0.013175s
+         Speedup: 32.0327x
+  Serial runtime: 0.415999s
+Parallel runtime: 0.013997s
+         Speedup: 29.7205x
+  Serial runtime: 2.285647s
+Parallel runtime: 0.043279s
+         Speedup: 52.8119x
+  Serial runtime: 0.081929s
+Parallel runtime: 0.001319s
+         Speedup: 62.1144x
+  Serial runtime: 0.122801s
+Parallel runtime: 0.003458s
+         Speedup: 35.5121x
+  Serial runtime: 0.423179s
+Parallel runtime: 0.013173s
+         Speedup: 32.1247x
+  Serial runtime: 0.418030s
+Parallel runtime: 0.014011s
+         Speedup: 29.8358x
+  Serial runtime: 2.290395s
+Parallel runtime: 0.043277s
+         Speedup: 52.9240x
+  Serial runtime: 0.082134s
+Parallel runtime: 0.001311s
+         Speedup: 62.6498x
+  Serial runtime: 0.123022s
+Parallel runtime: 0.003461s
+         Speedup: 35.5452x
+  Serial runtime: 0.422396s
+Parallel runtime: 0.013172s
+         Speedup: 32.0677x
+  Serial runtime: 0.417373s
+Parallel runtime: 0.013993s
+         Speedup: 29.8272x
+  Serial runtime: 2.286466s
+Parallel runtime: 0.043279s
+         Speedup: 52.8308x
+  Serial runtime: 0.081911s
+Parallel runtime: 0.001309s
+         Speedup: 62.5752x
+  Serial runtime: 0.122910s
+Parallel runtime: 0.003457s
+         Speedup: 35.5539x
+  Serial runtime: 0.422903s
+Parallel runtime: 0.013173s
+         Speedup: 32.1037x
+  Serial runtime: 0.401913s
+Parallel runtime: 0.013995s
+         Speedup: 28.7183x
+  Serial runtime: 2.288401s
+Parallel runtime: 0.043281s
+         Speedup: 52.8731x
+  Serial runtime: 0.082036s
+Parallel runtime: 0.001310s
+         Speedup: 62.6229x
+  Serial runtime: 0.122924s
+Parallel runtime: 0.003458s
+         Speedup: 35.5477x
+  Serial runtime: 0.422235s
+Parallel runtime: 0.013171s
+         Speedup: 32.0579x
+  Serial runtime: 0.417138s
+Parallel runtime: 0.013995s
+         Speedup: 29.8062x
+  Serial runtime: 2.288315s
+Parallel runtime: 0.043282s
+         Speedup: 52.8698x
+  Serial runtime: 0.082070s
+Parallel runtime: 0.001311s
+         Speedup: 62.6010x
+  Serial runtime: 0.122712s
+Parallel runtime: 0.003459s
+         Speedup: 35.4761x
+  Serial runtime: 0.423226s
+Parallel runtime: 0.013173s
+         Speedup: 32.1282x
+  Serial runtime: 0.401132s
+Parallel runtime: 0.013996s
+         Speedup: 28.6604x
+  Serial runtime: 2.286034s
+Parallel runtime: 0.043281s
+         Speedup: 52.8184x
+  Serial runtime: 0.081960s
+Parallel runtime: 0.001312s
+         Speedup: 62.4695x
+  Serial runtime: 0.121654s
+Parallel runtime: 0.003458s
+         Speedup: 35.1804x
+  Serial runtime: 0.424015s
+Parallel runtime: 0.013176s
+         Speedup: 32.1808x
+  Serial runtime: 0.416270s
+Parallel runtime: 0.013995s
+         Speedup: 29.7441x
+  Serial runtime: 2.282939s
+Parallel runtime: 0.043280s
+         Speedup: 52.7481x
+  Serial runtime: 0.082184s
+Parallel runtime: 0.001310s
+         Speedup: 62.7358x
+  Serial runtime: 0.121788s
+Parallel runtime: 0.003458s
+         Speedup: 35.2192x
+  Serial runtime: 0.423720s
+Parallel runtime: 0.013238s
+         Speedup: 32.0078x
+  Serial runtime: 0.415870s
+Parallel runtime: 0.014054s
+         Speedup: 29.5908x
+  Serial runtime: 2.286891s
+Parallel runtime: 0.043283s
+         Speedup: 52.8357x
+  Serial runtime: 0.081570s
+Parallel runtime: 0.001310s
+         Speedup: 62.2671x
+  Serial runtime: 0.121975s
+Parallel runtime: 0.003513s
+         Speedup: 34.7210x
+  Serial runtime: 0.423323s
+Parallel runtime: 0.013175s
+         Speedup: 32.1307x
+  Serial runtime: 0.416055s
+Parallel runtime: 0.013994s
+         Speedup: 29.7309x
+  Serial runtime: 2.289283s
+Parallel runtime: 0.043292s
+         Speedup: 52.8800x
+  Serial runtime: 0.081398s
+Parallel runtime: 0.001312s
+         Speedup: 62.0411x
+  Serial runtime: 0.122917s
+Parallel runtime: 0.003459s
+         Speedup: 35.5354x
+  Serial runtime: 0.423419s
+Parallel runtime: 0.013172s
+         Speedup: 32.1453x
+  Serial runtime: 0.416599s
+Parallel runtime: 0.013994s
+         Speedup: 29.7698x
+  Serial runtime: 2.286188s
+Parallel runtime: 0.043279s
+         Speedup: 52.8244x
+  Serial runtime: 0.081635s
+Parallel runtime: 0.001313s
+         Speedup: 62.1744x
+  Serial runtime: 0.123144s
+Parallel runtime: 0.003459s
+         Speedup: 35.6010x
+  Serial runtime: 0.423394s
+Parallel runtime: 0.013174s
+         Speedup: 32.1386x
+  Serial runtime: 0.416213s
+Parallel runtime: 0.013992s
+         Speedup: 29.7464x
+  Serial runtime: 2.290554s
+Parallel runtime: 0.043281s
+         Speedup: 52.9228x
+  Serial runtime: 0.081886s
+Parallel runtime: 0.001310s
+         Speedup: 62.5083x
+  Serial runtime: 0.122964s
+Parallel runtime: 0.003511s
+         Speedup: 35.0225x
+  Serial runtime: 0.423066s
+Parallel runtime: 0.013173s
+         Speedup: 32.1161x
+  Serial runtime: 0.416407s
+Parallel runtime: 0.013993s
+         Speedup: 29.7582x
+  Serial runtime: 2.288373s
+Parallel runtime: 0.043282s
+         Speedup: 52.8712x
+  Serial runtime: 0.081998s
+Parallel runtime: 0.001311s
+         Speedup: 62.5461x
+  Serial runtime: 0.122425s
+Parallel runtime: 0.003458s
+         Speedup: 35.4034x
+  Serial runtime: 0.422838s
+Parallel runtime: 0.013172s
+         Speedup: 32.1012x
+  Serial runtime: 0.415669s
+Parallel runtime: 0.013996s
+         Speedup: 29.6991x
+  Serial runtime: 2.285017s
+Parallel runtime: 0.043280s
+         Speedup: 52.7961x
+  Serial runtime: 0.081614s
+Parallel runtime: 0.001310s
+         Speedup: 62.3007x
+  Serial runtime: 0.122674s
+Parallel runtime: 0.003459s
+         Speedup: 35.4651x
+  Serial runtime: 0.423303s
+Parallel runtime: 0.013172s
+         Speedup: 32.1365x
+  Serial runtime: 0.415902s
+Parallel runtime: 0.013994s
+         Speedup: 29.7200x
+  Serial runtime: 2.289132s
+Parallel runtime: 0.043283s
+         Speedup: 52.8875x
+  Serial runtime: 0.081891s
+Parallel runtime: 0.001312s
+         Speedup: 62.4169x
+  Serial runtime: 0.122020s
+Parallel runtime: 0.003457s
+         Speedup: 35.2964x
+  Serial runtime: 0.422753s
+Parallel runtime: 0.013171s
+         Speedup: 32.0972x
+  Serial runtime: 0.415486s
+Parallel runtime: 0.013993s
+         Speedup: 29.6924x
+  Serial runtime: 2.289426s
+Parallel runtime: 0.043276s
+         Speedup: 52.9029x
+  Serial runtime: 0.082093s
+Parallel runtime: 0.001310s
+         Speedup: 62.6664x
+  Serial runtime: 0.122918s
+Parallel runtime: 0.003458s
+         Speedup: 35.5459x
+  Serial runtime: 0.422108s
+Parallel runtime: 0.013170s
+         Speedup: 32.0507x
+  Serial runtime: 0.415882s
+Parallel runtime: 0.013995s
+         Speedup: 29.7164x
+  Serial runtime: 2.285651s
+Parallel runtime: 0.043278s
+         Speedup: 52.8132x
+  Serial runtime: 0.082040s
+Parallel runtime: 0.001313s
+         Speedup: 62.4828x
+  Serial runtime: 0.122656s
+Parallel runtime: 0.003458s
+         Speedup: 35.4702x
+  Serial runtime: 0.423003s
+Parallel runtime: 0.013171s
+         Speedup: 32.1162x
+  Serial runtime: 0.416052s
+Parallel runtime: 0.014055s
+         Speedup: 29.6017x
+  Serial runtime: 2.290209s
+Parallel runtime: 0.043278s
+         Speedup: 52.9185x
+  Serial runtime: 0.081208s
+Parallel runtime: 0.001317s
+         Speedup: 61.6613x
+  Serial runtime: 0.122687s
+Parallel runtime: 0.003460s
+         Speedup: 35.4586x
+  Serial runtime: 0.424055s
+Parallel runtime: 0.013172s
+         Speedup: 32.1936x
+  Serial runtime: 0.416764s
+Parallel runtime: 0.013996s
+         Speedup: 29.7773x
+  Serial runtime: 2.290013s
+Parallel runtime: 0.043279s
+         Speedup: 52.9127x
+  Serial runtime: 0.081158s
+Parallel runtime: 0.001310s
+         Speedup: 61.9526x
+  Serial runtime: 0.122791s
+Parallel runtime: 0.003458s
+         Speedup: 35.5092x
+  Serial runtime: 0.423067s
+Parallel runtime: 0.013169s
+         Speedup: 32.1259x
+  Serial runtime: 0.416929s
+Parallel runtime: 0.013997s
+         Speedup: 29.7870x
+  Serial runtime: 2.289235s
+Parallel runtime: 0.043277s
+         Speedup: 52.8972x
+  Serial runtime: 0.081639s
+Parallel runtime: 0.001312s
+         Speedup: 62.2248x
+  Serial runtime: 0.122597s
+Parallel runtime: 0.003460s
+         Speedup: 35.4326x
+  Serial runtime: 0.423270s
+Parallel runtime: 0.013176s
+         Speedup: 32.1243x
+  Serial runtime: 0.415891s
+Parallel runtime: 0.013996s
+         Speedup: 29.7149x
+  Serial runtime: 2.286614s
+Parallel runtime: 0.043281s
+         Speedup: 52.8318x
+  Serial runtime: 0.082093s
+Parallel runtime: 0.001310s
+         Speedup: 62.6664x
+  Serial runtime: 0.127894s
+Parallel runtime: 0.003458s
+         Speedup: 36.9849x
+  Serial runtime: 0.422731s
+Parallel runtime: 0.013168s
+         Speedup: 32.1029x
+  Serial runtime: 0.416020s
+Parallel runtime: 0.013997s
+         Speedup: 29.7220x
+  Serial runtime: 2.289468s
+Parallel runtime: 0.043276s
+         Speedup: 52.9038x
+  Serial runtime: 0.081937s
+Parallel runtime: 0.001311s
+         Speedup: 62.4996x
+  Serial runtime: 0.122827s
+Parallel runtime: 0.003460s
+         Speedup: 35.4991x
+  Serial runtime: 0.423736s
+Parallel runtime: 0.013173s
+         Speedup: 32.1670x
+  Serial runtime: 0.417327s
+Parallel runtime: 0.013998s
+         Speedup: 29.8133x
+  Serial runtime: 2.291889s
+Parallel runtime: 0.043279s
+         Speedup: 52.9561x
+  Serial runtime: 0.081858s
+Parallel runtime: 0.001310s
+         Speedup: 62.4870x
+  Serial runtime: 0.122723s
+Parallel runtime: 0.003458s
+         Speedup: 35.4895x
+  Serial runtime: 0.422716s
+Parallel runtime: 0.013171s
+         Speedup: 32.0944x
+  Serial runtime: 0.415709s
+Parallel runtime: 0.013994s
+         Speedup: 29.7062x
+  Serial runtime: 2.289875s
+Parallel runtime: 0.043276s
+         Speedup: 52.9132x
+  Serial runtime: 0.081013s
+Parallel runtime: 0.001313s
+         Speedup: 61.7006x
+  Serial runtime: 0.122454s
+Parallel runtime: 0.003458s
+         Speedup: 35.4117x
+  Serial runtime: 0.424697s
+Parallel runtime: 0.013173s
+         Speedup: 32.2399x
+  Serial runtime: 0.416729s
+Parallel runtime: 0.013995s
+         Speedup: 29.7769x
+  Serial runtime: 2.283636s
+Parallel runtime: 0.043290s
+         Speedup: 52.7520x
+  Serial runtime: 0.081911s
+Parallel runtime: 0.001311s
+         Speedup: 62.4797x
+  Serial runtime: 0.122829s
+Parallel runtime: 0.003459s
+         Speedup: 35.5099x
+  Serial runtime: 0.422299s
+Parallel runtime: 0.013173s
+         Speedup: 32.0579x
+  Serial runtime: 0.416544s
+Parallel runtime: 0.013993s
+         Speedup: 29.7680x
+  Serial runtime: 2.286964s
+Parallel runtime: 0.043274s
+         Speedup: 52.8484x
+  Serial runtime: 0.081789s
+Parallel runtime: 0.001309s
+         Speedup: 62.4820x
+  Serial runtime: 0.122592s
+Parallel runtime: 0.003458s
+         Speedup: 35.4517x
+  Serial runtime: 0.423150s
+Parallel runtime: 0.013171s
+         Speedup: 32.1274x
+  Serial runtime: 0.416156s
+Parallel runtime: 0.013995s
+         Speedup: 29.7360x
+  Serial runtime: 2.294560s
+Parallel runtime: 0.043276s
+         Speedup: 53.0215x
+  Serial runtime: 0.081648s
+Parallel runtime: 0.001312s
+         Speedup: 62.2317x
+  Serial runtime: 0.123013s
+Parallel runtime: 0.003510s
+         Speedup: 35.0464x
+  Serial runtime: 0.423867s
+Parallel runtime: 0.013173s
+         Speedup: 32.1769x
+  Serial runtime: 0.415266s
+Parallel runtime: 0.014000s
+         Speedup: 29.6618x
+  Serial runtime: 2.287871s
+Parallel runtime: 0.043282s
+         Speedup: 52.8596x
+  Serial runtime: 0.081932s
+Parallel runtime: 0.001364s
+         Speedup: 60.0674x
+  Serial runtime: 0.121876s
+Parallel runtime: 0.003459s
+         Speedup: 35.2344x
+  Serial runtime: 0.423004s
+Parallel runtime: 0.013170s
+         Speedup: 32.1187x
+  Serial runtime: 0.402153s
+Parallel runtime: 0.014051s
+         Speedup: 28.6209x
+  Serial runtime: 2.291198s
+Parallel runtime: 0.043274s
+         Speedup: 52.9462x
+  Serial runtime: 0.082129s
+Parallel runtime: 0.001310s
+         Speedup: 62.6938x
+  Serial runtime: 0.122806s
+Parallel runtime: 0.003459s
+         Speedup: 35.5033x
+  Serial runtime: 0.423132s
+Parallel runtime: 0.013229s
+         Speedup: 31.9851x
+  Serial runtime: 0.416891s
+Parallel runtime: 0.013994s
+         Speedup: 29.7906x
+  Serial runtime: 2.286108s
+Parallel runtime: 0.043275s
+         Speedup: 52.8274x
+  Serial runtime: 0.081659s
+Parallel runtime: 0.001309s
+         Speedup: 62.3827x
+  Serial runtime: 0.122996s
+Parallel runtime: 0.003459s
+         Speedup: 35.5582x
+  Serial runtime: 0.422697s
+Parallel runtime: 0.013171s
+         Speedup: 32.0930x
+  Serial runtime: 0.416201s
+Parallel runtime: 0.013995s
+         Speedup: 29.7392x
+  Serial runtime: 2.288968s
+Parallel runtime: 0.043279s
+         Speedup: 52.8886x
+  Serial runtime: 0.081008s
+Parallel runtime: 0.001308s
+         Speedup: 61.9327x
+  Serial runtime: 0.123022s
+Parallel runtime: 0.003459s
+         Speedup: 35.5657x
+  Serial runtime: 0.423011s
+Parallel runtime: 0.013172s
+         Speedup: 32.1144x
+  Serial runtime: 0.418077s
+Parallel runtime: 0.013994s
+         Speedup: 29.8754x
+  Serial runtime: 2.287628s
+Parallel runtime: 0.043286s
+         Speedup: 52.8491x
+  Serial runtime: 0.082022s
+Parallel runtime: 0.001311s
+         Speedup: 62.5644x
+  Serial runtime: 0.122750s
+Parallel runtime: 0.003460s
+         Speedup: 35.4768x
+  Serial runtime: 0.424002s
+Parallel runtime: 0.013231s
+         Speedup: 32.0461x
+  Serial runtime: 0.416644s
+Parallel runtime: 0.014001s
+         Speedup: 29.7581x
+  Serial runtime: 2.288760s
+Parallel runtime: 0.043339s
+         Speedup: 52.8106x
+  Serial runtime: 0.081310s
+Parallel runtime: 0.001310s
+         Speedup: 62.0687x
+  Serial runtime: 0.122583s
+Parallel runtime: 0.003460s
+         Speedup: 35.4286x
+  Serial runtime: 0.424775s
+Parallel runtime: 0.013175s
+         Speedup: 32.2409x
+  Serial runtime: 0.414885s
+Parallel runtime: 0.013995s
+         Speedup: 29.6452x
+  Serial runtime: 2.288045s
+Parallel runtime: 0.043282s
+         Speedup: 52.8636x
+  Serial runtime: 0.081977s
+Parallel runtime: 0.001363s
+         Speedup: 60.1445x
+  Serial runtime: 0.122650s
+Parallel runtime: 0.003458s
+         Speedup: 35.4684x
+  Serial runtime: 0.422902s
+Parallel runtime: 0.013173s
+         Speedup: 32.1036x
+  Serial runtime: 0.416707s
+Parallel runtime: 0.013992s
+         Speedup: 29.7818x
+  Serial runtime: 2.282250s
+Parallel runtime: 0.043282s
+         Speedup: 52.7297x
+  Serial runtime: 0.081848s
+Parallel runtime: 0.001309s
+         Speedup: 62.5271x
+  Serial runtime: 0.123006s
+Parallel runtime: 0.003457s
+         Speedup: 35.5817x
+  Serial runtime: 0.423002s
+Parallel runtime: 0.013175s
+         Speedup: 32.1064x
+  Serial runtime: 0.417069s
+Parallel runtime: 0.013991s
+         Speedup: 29.8098x
+  Serial runtime: 2.288287s
+Parallel runtime: 0.043280s
+         Speedup: 52.8716x
+  Serial runtime: 0.081970s
+Parallel runtime: 0.001309s
+         Speedup: 62.6203x
+  Serial runtime: 0.122352s
+Parallel runtime: 0.003458s
+         Speedup: 35.3823x
+  Serial runtime: 0.423850s
+Parallel runtime: 0.013176s
+         Speedup: 32.1683x
+  Serial runtime: 0.415878s
+Parallel runtime: 0.013994s
+         Speedup: 29.7183x
+  Serial runtime: 2.286368s
+Parallel runtime: 0.043275s
+         Speedup: 52.8334x
+  Serial runtime: 0.082403s
+Parallel runtime: 0.001310s
+         Speedup: 62.9030x
+  Serial runtime: 0.123059s
+Parallel runtime: 0.003460s
+         Speedup: 35.5661x
+  Serial runtime: 0.425312s
+Parallel runtime: 0.013172s
+         Speedup: 32.2890x
+  Serial runtime: 0.415879s
+Parallel runtime: 0.014001s
+         Speedup: 29.7035x
+  Serial runtime: 2.285260s
+Parallel runtime: 0.043341s
+         Speedup: 52.7274x
+  Serial runtime: 0.081498s
+Parallel runtime: 0.001311s
+         Speedup: 62.1647x
+  Serial runtime: 0.122811s
+Parallel runtime: 0.003458s
+         Speedup: 35.5150x
+  Serial runtime: 0.423792s
+Parallel runtime: 0.013173s
+         Speedup: 32.1712x
+  Serial runtime: 0.416325s
+Parallel runtime: 0.013993s
+         Speedup: 29.7523x
+  Serial runtime: 2.289493s
+Parallel runtime: 0.043285s
+         Speedup: 52.8934x
+  Serial runtime: 0.081676s
+Parallel runtime: 0.001363s
+         Speedup: 59.9236x
+  Serial runtime: 0.122861s
+Parallel runtime: 0.003458s
+         Speedup: 35.5294x
+  Serial runtime: 0.423080s
+Parallel runtime: 0.013172s
+         Speedup: 32.1196x
+  Serial runtime: 0.415972s
+Parallel runtime: 0.013993s
+         Speedup: 29.7271x
+  Serial runtime: 2.290400s
+Parallel runtime: 0.043278s
+         Speedup: 52.9229x
+  Serial runtime: 0.081799s
+Parallel runtime: 0.001311s
+         Speedup: 62.3943x
+  Serial runtime: 0.122813s
+Parallel runtime: 0.003466s
+         Speedup: 35.4336x
+  Serial runtime: 0.424720s
+Parallel runtime: 0.013229s
+         Speedup: 32.1052x
+  Serial runtime: 0.416849s
+Parallel runtime: 0.013996s
+         Speedup: 29.7834x
+  Serial runtime: 2.280109s
+Parallel runtime: 0.043278s
+         Speedup: 52.6851x
+  Serial runtime: 0.081668s
+Parallel runtime: 0.001364s
+         Speedup: 59.8739x
+  Serial runtime: 0.122208s
+Parallel runtime: 0.003510s
+         Speedup: 34.8170x
+  Serial runtime: 0.422994s
+Parallel runtime: 0.013172s
+         Speedup: 32.1131x
+  Serial runtime: 0.416231s
+Parallel runtime: 0.013995s
+         Speedup: 29.7414x
+  Serial runtime: 2.289433s
+Parallel runtime: 0.043275s
+         Speedup: 52.9042x
+  Serial runtime: 0.081831s
+Parallel runtime: 0.001310s
+         Speedup: 62.4664x
+  Serial runtime: 0.122756s
+Parallel runtime: 0.003460s
+         Speedup: 35.4786x
+  Serial runtime: 0.422534s
+Parallel runtime: 0.013174s
+         Speedup: 32.0733x
+  Serial runtime: 0.416308s
+Parallel runtime: 0.013996s
+         Speedup: 29.7447x
+  Serial runtime: 2.286232s
+Parallel runtime: 0.043277s
+         Speedup: 52.8278x
+  Serial runtime: 0.082127s
+Parallel runtime: 0.001311s
+         Speedup: 62.6445x
+  Serial runtime: 0.122754s
+Parallel runtime: 0.003467s
+         Speedup: 35.4064x
+  Serial runtime: 0.423409s
+Parallel runtime: 0.013231s
+         Speedup: 32.0012x
+  Serial runtime: 0.415696s
+Parallel runtime: 0.013996s
+         Speedup: 29.7010x
+  Serial runtime: 2.287004s
+Parallel runtime: 0.043281s
+         Speedup: 52.8408x
+  Serial runtime: 0.081675s
+Parallel runtime: 0.001309s
+         Speedup: 62.3949x
+  Serial runtime: 0.122788s
+Parallel runtime: 0.003458s
+         Speedup: 35.5083x
+  Serial runtime: 0.422459s
+Parallel runtime: 0.013173s
+         Speedup: 32.0700x
+  Serial runtime: 0.416789s
+Parallel runtime: 0.013994s
+         Speedup: 29.7834x
+  Serial runtime: 2.290789s
+Parallel runtime: 0.043279s
+         Speedup: 52.9307x
+  Serial runtime: 0.081578s
+Parallel runtime: 0.001309s
+         Speedup: 62.3208x
+  Serial runtime: 0.122916s
+Parallel runtime: 0.003459s
+         Speedup: 35.5351x
+  Serial runtime: 0.423498s
+Parallel runtime: 0.013170s
+         Speedup: 32.1562x
+  Serial runtime: 0.415503s
+Parallel runtime: 0.013997s
+         Speedup: 29.6851x
+  Serial runtime: 2.288089s
+Parallel runtime: 0.043275s
+         Speedup: 52.8732x
+  Serial runtime: 0.081665s
+Parallel runtime: 0.001323s
+         Speedup: 61.7271x
+  Serial runtime: 0.122514s
+Parallel runtime: 0.003457s
+         Speedup: 35.4393x
+  Serial runtime: 0.423654s
+Parallel runtime: 0.013171s
+         Speedup: 32.1656x
+  Serial runtime: 0.417204s
+Parallel runtime: 0.013992s
+         Speedup: 29.8173x
+  Serial runtime: 2.286074s
+Parallel runtime: 0.043278s
+         Speedup: 52.8230x
+  Serial runtime: 0.081912s
+Parallel runtime: 0.001313s
+         Speedup: 62.3853x
+  Serial runtime: 0.122956s
+Parallel runtime: 0.003457s
+         Speedup: 35.5672x
+  Serial runtime: 0.423406s
+Parallel runtime: 0.013172s
+         Speedup: 32.1443x
+  Serial runtime: 0.416151s
+Parallel runtime: 0.013993s
+         Speedup: 29.7399x
+  Serial runtime: 2.281043s
+Parallel runtime: 0.043274s
+         Speedup: 52.7116x
+  Serial runtime: 0.081620s
+Parallel runtime: 0.001310s
+         Speedup: 62.3053x
+  Serial runtime: 0.122929s
+Parallel runtime: 0.003457s
+         Speedup: 35.5594x
+  Serial runtime: 0.423143s
+Parallel runtime: 0.013173s
+         Speedup: 32.1219x
+  Serial runtime: 0.416791s
+Parallel runtime: 0.013995s
+         Speedup: 29.7814x
+  Serial runtime: 2.289850s
+Parallel runtime: 0.043281s
+         Speedup: 52.9065x
+  Serial runtime: 0.081741s
+Parallel runtime: 0.001310s
+         Speedup: 62.3977x
+  Serial runtime: 0.122758s
+Parallel runtime: 0.003462s
+         Speedup: 35.4586x
+  Serial runtime: 0.423608s
+Parallel runtime: 0.013181s
+         Speedup: 32.1377x
+  Serial runtime: 0.415816s
+Parallel runtime: 0.013995s
+         Speedup: 29.7117x
+  Serial runtime: 2.286151s
+Parallel runtime: 0.043279s
+         Speedup: 52.8235x
+  Serial runtime: 0.081251s
+Parallel runtime: 0.001312s
+         Speedup: 61.9291x
+  Serial runtime: 0.122708s
+Parallel runtime: 0.003460s
+         Speedup: 35.4647x
+  Serial runtime: 0.422173s
+Parallel runtime: 0.013174s
+         Speedup: 32.0459x
+  Serial runtime: 0.419961s
+Parallel runtime: 0.013993s
+         Speedup: 30.0122x
+  Serial runtime: 2.291543s
+Parallel runtime: 0.043283s
+         Speedup: 52.9432x
