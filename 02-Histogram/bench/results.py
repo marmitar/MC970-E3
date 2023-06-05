@@ -29,7 +29,12 @@ def tests(df: pd.DataFrame, /) -> pd.DataFrame:
     return df.groupby('test').describe()
 
 if __name__ == "__main__":
-    df = pd.read_csv(OUTPUT, usecols=['test','nthreads','speedup','total_speedup'])
+    try:
+        output = path(sys.argv[1])
+    except:
+        output = OUTPUT
+
+    df = pd.read_csv(output, usecols=['test','nthreads','speedup','total_speedup'])
 
     for nthreads, group in df.groupby('nthreads'):
         print('THREADS_PER_BLOCK', '=', nthreads, '>')
