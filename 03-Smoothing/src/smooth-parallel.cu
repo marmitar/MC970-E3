@@ -487,8 +487,8 @@ static __launch_bounds__(cuda::BLOCK_SIZE) __global__
   constexpr unsigned RADIUS = mask::radius();
   // calculate the total RGB in neighborhood
   unsigned red = 0, green = 0, blue = 0;
-  for (unsigned x = saturating::sub(i, RADIUS); x <= saturating::add(i, RADIUS, width); x++) {
-    for (auto y = saturating::sub(j, RADIUS); y <= saturating::add(j, RADIUS, height); y++) {
+  for (unsigned x = saturating::sub(i, RADIUS); x <= saturating::add(i, RADIUS, width - 1); x++) {
+    for (auto y = saturating::sub(j, RADIUS); y <= saturating::add(j, RADIUS, height - 1); y++) {
       red += img[y * width + x].red;
       green += img[y * width + x].green;
       blue += img[y * width + x].blue;
